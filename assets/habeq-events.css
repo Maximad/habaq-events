@@ -1,0 +1,44 @@
+.habeq-booking-box {
+  border: 1px solid #e0e0e0;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  background: #fff;
+}
+
+.habeq-booking-remaining {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.habeq-booking-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.habeq-booking-form .habeq-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.habeq-booking-message {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.habeq-booking-success {
+  background: #e7f7ef;
+  color: #1a5e2a;
+  border: 1px solid #bfe6cc;
+}
+
+.habeq-booking-error {
+  background: #fdecea;
+  color: #7a1b1b;
+  border: 1px solid #f5c2c0;
+}
+
+.habeq-honeypot {
+  display: none;
+}
