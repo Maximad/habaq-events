@@ -54,6 +54,7 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 */
 		private function __construct() {
 			$this->load_helpers();
+			$this->load_components();
 			$this->register_hooks();
 		}
 
@@ -66,6 +67,18 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			$helpers_path = HABEQ_PATH . 'includes/helpers.php';
 			if ( file_exists( $helpers_path ) ) {
 				require_once $helpers_path;
+			}
+		}
+
+		/**
+		 * Load core components.
+		 *
+		 * @return void
+		 */
+		private function load_components() {
+			$cpt_path = HABEQ_PATH . 'includes/class-habeq-cpt-event.php';
+			if ( file_exists( $cpt_path ) ) {
+				require_once $cpt_path;
 			}
 		}
 
@@ -99,7 +112,9 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 * @return void
 		 */
 		public function register_content_types() {
-			// Future CPT/Taxonomy registration.
+			if ( class_exists( 'Habeq_CPT_Event' ) ) {
+				Habeq_CPT_Event::init();
+			}
 		}
 
 		/**
