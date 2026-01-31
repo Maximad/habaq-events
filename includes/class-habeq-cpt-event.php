@@ -28,6 +28,7 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_public_assets' ) );
 			add_filter( 'query_vars', array( __CLASS__, 'register_query_vars' ) );
 			add_shortcode( 'habeq_organizer_dashboard', array( __CLASS__, 'render_organizer_dashboard' ) );
+			add_action( 'admin_menu', array( __CLASS__, 'register_bookings_page' ) );
 		}
 
 		/**
@@ -245,16 +246,32 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 		 *
 		 * @return void
 		 */
-		public static function register_tools_page() {
-			add_submenu_page(
-				'edit.php?post_type=habeq_event',
-				__( 'Event Tools', 'habeq' ),
-				__( 'Tools', 'habeq' ),
+			public static function register_tools_page() {
+				add_submenu_page(
+					'edit.php?post_type=habeq_event',
+					__( 'Event Tools', 'habeq' ),
+					__( 'Tools', 'habeq' ),
 				'manage_options',
 				'habeq-event-tools',
 				array( __CLASS__, 'render_tools_page' )
-			);
-		}
+				);
+			}
+
+			/**
+			 * Register bookings admin page.
+			 *
+			 * @return void
+			 */
+			public static function register_bookings_page() {
+				add_submenu_page(
+					'edit.php?post_type=habeq_event',
+					__( 'Bookings', 'habeq' ),
+					__( 'Bookings', 'habeq' ),
+					'edit_habeq_events',
+					'habeq-event-bookings',
+					array( __CLASS__, 'render_bookings_page' )
+				);
+			}
 
 		/**
 		 * Render the admin tools page.
@@ -345,8 +362,8 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<?php submit_button( __( 'Create Test Booking', 'habeq' ) ); ?>
 				</form>
 			</div>
-				<?php
-			}
+			<?php
+		}
 
 		/**
 		 * Shortcode for organizer dashboard.
@@ -511,142 +528,381 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			return '1' === get_option( 'habeq_trusted_autopublish', '0' );
 		}
 
-	/**
-	 * Register query vars for booking responses.
-	 *
-	 * @param array $vars Query vars.
-	 * @return array
-	 */
-	public static function register_query_vars( $vars ) {
-		$vars[] = 'habeq_booking';
-		$vars[] = 'habeq_message';
-		return $vars;
-	}
+		/**
+		 * Render bookings list page.
+		 *
+		 * @return void
+		 */
+		public static function render_bookings_page() {
+			if ( ! current_user_can( 'edit_habeq_events' ) ) {
+				wp_die( esc_html__( 'You do not have permission to access this page.', 'habeq' ) );
+			}
 
-	/**
-	 * Enqueue public assets on single event pages.
-	 *
-	 * @return void
-	 */
-	public static function enqueue_public_assets() {
-		if ( is_singular( 'habeq_event' ) ) {
-			wp_enqueue_style(
-				'habeq-events',
-				HABEQ_URL . 'assets/habeq-events.css',
-				array(),
-				HABEQ_VERSION
+			$user_id      = get_current_user_id();
+			$is_admin     = current_user_can( 'manage_options' );
+			$event_filter = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
+
+			$event_ids = $is_admin ? array() : self::get_user_event_ids( $user_id );
+			if ( ! $is_admin && $event_filter && ! in_array( $event_filter, $event_ids, true ) ) {
+				$event_filter = 0;
+			}
+
+			if ( isset( $_GET['habeq_export'] ) && 'csv' === $_GET['habeq_export'] ) {
+				check_admin_referer( 'habeq_export_bookings', 'habeq_export_nonce' );
+				self::export_bookings_csv( $event_filter, $event_ids, $is_admin );
+			}
+
+			$bookings = self::get_bookings_list( $event_filter, $event_ids, $is_admin );
+			$events   = self::get_events_for_filter( $event_ids, $is_admin );
+
+			$export_url = wp_nonce_url(
+				add_query_arg(
+					array(
+						'page'         => 'habeq-event-bookings',
+						'post_type'    => 'habeq_event',
+						'event_id'     => $event_filter,
+						'habeq_export' => 'csv',
+					),
+					admin_url( 'edit.php' )
+				),
+				'habeq_export_bookings',
+				'habeq_export_nonce'
+			);
+			?>
+			<div class="wrap">
+				<h1><?php esc_html_e( 'Bookings', 'habeq' ); ?></h1>
+
+				<form method="get">
+					<input type="hidden" name="page" value="habeq-event-bookings" />
+					<input type="hidden" name="post_type" value="habeq_event" />
+					<label for="habeq_event_filter"><?php esc_html_e( 'Filter by event', 'habeq' ); ?></label>
+					<select id="habeq_event_filter" name="event_id">
+						<option value="0"><?php esc_html_e( 'All events', 'habeq' ); ?></option>
+						<?php foreach ( $events as $event ) : ?>
+							<option value="<?php echo esc_attr( $event['id'] ); ?>" <?php selected( $event_filter, $event['id'] ); ?>>
+								<?php echo esc_html( $event['title'] ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<?php submit_button( __( 'Filter', 'habeq' ), 'secondary', '', false ); ?>
+					<a class="button" href="<?php echo esc_url( $export_url ); ?>">
+						<?php esc_html_e( 'Export CSV', 'habeq' ); ?>
+					</a>
+				</form>
+
+				<table class="widefat striped" style="margin-top: 1rem;">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Name', 'habeq' ); ?></th>
+							<th><?php esc_html_e( 'Email', 'habeq' ); ?></th>
+							<th><?php esc_html_e( 'Qty', 'habeq' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'habeq' ); ?></th>
+							<th><?php esc_html_e( 'Created', 'habeq' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php if ( $bookings ) : ?>
+							<?php foreach ( $bookings as $booking ) : ?>
+								<tr>
+									<td><?php echo esc_html( $booking['name'] ); ?></td>
+									<td><?php echo esc_html( $booking['email'] ); ?></td>
+									<td><?php echo esc_html( $booking['qty'] ); ?></td>
+									<td><?php echo esc_html( $booking['status'] ); ?></td>
+									<td><?php echo esc_html( $booking['created_at'] ); ?></td>
+								</tr>
+							<?php endforeach; ?>
+						<?php else : ?>
+							<tr>
+								<td colspan="5"><?php esc_html_e( 'No bookings found.', 'habeq' ); ?></td>
+							</tr>
+						<?php endif; ?>
+					</tbody>
+				</table>
+			</div>
+			<?php
+		}
+
+		/**
+		 * Fetch bookings list for the admin table.
+		 *
+		 * @param int   $event_filter Event ID filter.
+		 * @param array $event_ids    Allowed event IDs.
+		 * @param bool  $is_admin     Whether user is admin.
+		 * @return array
+		 */
+		private static function get_bookings_list( $event_filter, $event_ids, $is_admin ) {
+			if ( ! class_exists( 'Habeq_DB' ) ) {
+				return array();
+			}
+
+			global $wpdb;
+			$tables = Habeq_DB::get_table_names();
+
+			$where   = '1=1';
+			$params  = array();
+			$filters = array();
+
+			if ( $event_filter ) {
+				$filters[] = 'event_id = %d';
+				$params[]  = $event_filter;
+			}
+
+			if ( ! $is_admin ) {
+				if ( empty( $event_ids ) ) {
+					return array();
+				}
+				$placeholders = implode( ',', array_fill( 0, count( $event_ids ), '%d' ) );
+				$filters[]    = "event_id IN ($placeholders)";
+				$params       = array_merge( $params, $event_ids );
+			}
+
+			if ( $filters ) {
+				$where = implode( ' AND ', $filters );
+			}
+
+			$sql = "SELECT name, email, qty, status, created_at FROM {$tables['bookings']} WHERE {$where} ORDER BY created_at DESC";
+			$prepared = $params ? $wpdb->prepare( $sql, $params ) : $sql;
+			$rows = $wpdb->get_results( $prepared, ARRAY_A );
+
+			return array_map(
+				static function ( $row ) {
+					return array(
+						'name'       => $row['name'],
+						'email'      => $row['email'],
+						'qty'        => absint( $row['qty'] ),
+						'status'     => $row['status'],
+						'created_at' => $row['created_at'],
+					);
+				},
+				$rows
 			);
 		}
-	}
 
-	/**
-	 * Append booking form to single event content.
-	 *
-	 * @param string $content Post content.
-	 * @return string
-	 */
-	public static function append_booking_box( $content ) {
-		if ( ! is_singular( 'habeq_event' ) || ! in_the_loop() || ! is_main_query() ) {
-			return $content;
+		/**
+		 * Export bookings as CSV.
+		 *
+		 * @param int   $event_filter Event ID filter.
+		 * @param array $event_ids    Allowed event IDs.
+		 * @param bool  $is_admin     Whether user is admin.
+		 * @return void
+		 */
+		private static function export_bookings_csv( $event_filter, $event_ids, $is_admin ) {
+			$bookings = self::get_bookings_list( $event_filter, $event_ids, $is_admin );
+
+			nocache_headers();
+			header( 'Content-Type: text/csv; charset=utf-8' );
+			header( 'Content-Disposition: attachment; filename=habeq-bookings.csv' );
+
+			$output = fopen( 'php://output', 'w' );
+			fputcsv( $output, array( 'Name', 'Email', 'Qty', 'Status', 'Created' ) );
+			foreach ( $bookings as $booking ) {
+				fputcsv(
+					$output,
+					array(
+						$booking['name'],
+						$booking['email'],
+						$booking['qty'],
+						$booking['status'],
+						$booking['created_at'],
+					)
+				);
+			}
+			fclose( $output );
+			exit;
 		}
 
-		$booking_box = self::get_booking_box_markup( get_the_ID() );
-		if ( '' === $booking_box ) {
-			return $content;
+		/**
+		 * Get event IDs for the current organizer.
+		 *
+		 * @param int $user_id User ID.
+		 * @return array
+		 */
+		private static function get_user_event_ids( $user_id ) {
+			$events = new WP_Query(
+				array(
+					'post_type'      => 'habeq_event',
+					'author'         => $user_id,
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'post_status'    => array( 'publish', 'pending', 'draft' ),
+				)
+			);
+
+			return array_map( 'absint', $events->posts );
 		}
 
-		return $content . $booking_box;
-	}
+		/**
+		 * Get events for filter dropdown.
+		 *
+		 * @param array $event_ids Allowed event IDs.
+		 * @param bool  $is_admin  Whether user is admin.
+		 * @return array
+		 */
+		private static function get_events_for_filter( $event_ids, $is_admin ) {
+			$args = array(
+				'post_type'      => 'habeq_event',
+				'posts_per_page' => -1,
+				'post_status'    => array( 'publish', 'pending', 'draft' ),
+			);
 
-	/**
-	 * Handle booking submissions from the public form.
-	 *
-	 * @return void
-	 */
-	public static function handle_booking_submission() {
-		if ( ! is_singular( 'habeq_event' ) ) {
-			return;
+			if ( ! $is_admin ) {
+				if ( empty( $event_ids ) ) {
+					return array();
+				}
+				$args['post__in'] = $event_ids;
+			}
+
+			$query = new WP_Query( $args );
+			$events = array();
+
+			if ( $query->have_posts() ) {
+				foreach ( $query->posts as $post ) {
+					$events[] = array(
+						'id'    => absint( $post->ID ),
+						'title' => get_the_title( $post->ID ),
+					);
+				}
+			}
+
+			return $events;
 		}
 
-		if ( empty( $_POST['habeq_booking_action'] ) || 'submit_booking' !== $_POST['habeq_booking_action'] ) {
-			return;
+		/**
+		 * Register query vars for booking responses.
+		 *
+		 * @param array $vars Query vars.
+		 * @return array
+		 */
+		public static function register_query_vars( $vars ) {
+			$vars[] = 'habeq_booking';
+			$vars[] = 'habeq_message';
+			return $vars;
 		}
 
-		if ( ! isset( $_POST['habeq_booking_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['habeq_booking_nonce'] ), 'habeq_booking' ) ) {
-			self::redirect_with_message( 'error', __( 'Security check failed. Please try again.', 'habeq' ) );
+		/**
+		 * Enqueue public assets on single event pages.
+		 *
+		 * @return void
+		 */
+		public static function enqueue_public_assets() {
+			if ( is_singular( 'habeq_event' ) ) {
+				wp_enqueue_style(
+					'habeq-events',
+					HABEQ_URL . 'assets/habeq-events.css',
+					array(),
+					HABEQ_VERSION
+				);
+			}
 		}
 
-		$event_id = get_the_ID();
-		$name     = isset( $_POST['habeq_name'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_name'] ) ) : '';
-		$email    = isset( $_POST['habeq_email'] ) ? sanitize_email( wp_unslash( $_POST['habeq_email'] ) ) : '';
-		$qty      = isset( $_POST['habeq_qty'] ) ? absint( wp_unslash( $_POST['habeq_qty'] ) ) : 0;
-		$honeypot = isset( $_POST['habeq_company'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_company'] ) ) : '';
+		/**
+		 * Append booking form to single event content.
+		 *
+		 * @param string $content Post content.
+		 * @return string
+		 */
+		public static function append_booking_box( $content ) {
+			if ( ! is_singular( 'habeq_event' ) || ! in_the_loop() || ! is_main_query() ) {
+				return $content;
+			}
 
-		if ( '' !== $honeypot ) {
-			self::redirect_with_message( 'error', __( 'Please leave the extra field blank.', 'habeq' ) );
+			$booking_box = self::get_booking_box_markup( get_the_ID() );
+			if ( '' === $booking_box ) {
+				return $content;
+			}
+
+			return $content . $booking_box;
 		}
 
-		if ( '' === $name || '' === $email ) {
-			self::redirect_with_message( 'error', __( 'Name and email are required.', 'habeq' ) );
+		/**
+		 * Handle booking submissions from the public form.
+		 *
+		 * @return void
+		 */
+		public static function handle_booking_submission() {
+			if ( ! is_singular( 'habeq_event' ) ) {
+				return;
+			}
+
+			if ( empty( $_POST['habeq_booking_action'] ) || 'submit_booking' !== $_POST['habeq_booking_action'] ) {
+				return;
+			}
+
+			if ( ! isset( $_POST['habeq_booking_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_POST['habeq_booking_nonce'] ), 'habeq_booking' ) ) {
+				self::redirect_with_message( 'error', __( 'Security check failed. Please try again.', 'habeq' ) );
+			}
+
+			$event_id = get_the_ID();
+			$name     = isset( $_POST['habeq_name'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_name'] ) ) : '';
+			$email    = isset( $_POST['habeq_email'] ) ? sanitize_email( wp_unslash( $_POST['habeq_email'] ) ) : '';
+			$qty      = isset( $_POST['habeq_qty'] ) ? absint( wp_unslash( $_POST['habeq_qty'] ) ) : 0;
+			$honeypot = isset( $_POST['habeq_company'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_company'] ) ) : '';
+
+			if ( '' !== $honeypot ) {
+				self::redirect_with_message( 'error', __( 'Please leave the extra field blank.', 'habeq' ) );
+			}
+
+			if ( '' === $name || '' === $email ) {
+				self::redirect_with_message( 'error', __( 'Name and email are required.', 'habeq' ) );
+			}
+
+			if ( $qty < 1 ) {
+				self::redirect_with_message( 'error', __( 'Please enter a valid quantity.', 'habeq' ) );
+			}
+
+			$rate_key = 'habeq_booking_' . $event_id . '_' . md5( strtolower( $email ) );
+			if ( get_transient( $rate_key ) ) {
+				self::redirect_with_message( 'error', __( 'Please wait a moment before booking again for this event.', 'habeq' ) );
+			}
+
+			set_transient( $rate_key, 1, 2 * MINUTE_IN_SECONDS );
+
+			if ( ! class_exists( 'Habeq_Bookings' ) ) {
+				self::redirect_with_message( 'error', __( 'Booking service is unavailable. Please try again later.', 'habeq' ) );
+			}
+
+			$result = Habeq_Bookings::create_booking( $event_id, $name, $email, $qty );
+			if ( is_wp_error( $result ) ) {
+				self::redirect_with_message( 'error', $result->get_error_message() );
+			}
+
+			self::send_booking_emails( $event_id, $name, $email, $qty, $result );
+
+			self::redirect_with_message( 'success', __( 'Your booking was received. Check your email for confirmation.', 'habeq' ) );
 		}
 
-		if ( $qty < 1 ) {
-			self::redirect_with_message( 'error', __( 'Please enter a valid quantity.', 'habeq' ) );
+		/**
+		 * Build booking form markup.
+		 *
+		 * @param int $event_id Event ID.
+		 * @return string
+		 */
+		private static function get_booking_box_markup( $event_id ) {
+			if ( ! class_exists( 'Habeq_DB' ) ) {
+				return '';
+			}
+
+			$inventory = Habeq_DB::get_inventory( $event_id );
+			$capacity  = $inventory ? $inventory['capacity'] : absint( get_post_meta( $event_id, '_habeq_capacity', true ) );
+			$reserved  = $inventory ? $inventory['reserved'] : 0;
+			$remaining = max( 0, $capacity - $reserved );
+
+			$status  = get_query_var( 'habeq_booking' );
+			$message = get_query_var( 'habeq_message' );
+			$message = $message ? rawurldecode( $message ) : '';
+
+			$success = 'success' === $status;
+			$error   = ( 'error' === $status ) ? $message : '';
+
+			ob_start();
+			$template_path = HABEQ_PATH . 'templates/booking-form.php';
+			if ( file_exists( $template_path ) ) {
+				$booking_error   = $error;
+				$booking_success = $success ? $message : '';
+				require $template_path;
+			}
+			return ob_get_clean();
 		}
-
-		$rate_key = 'habeq_booking_' . $event_id . '_' . md5( strtolower( $email ) );
-		if ( get_transient( $rate_key ) ) {
-			self::redirect_with_message( 'error', __( 'Please wait a moment before booking again for this event.', 'habeq' ) );
-		}
-
-		set_transient( $rate_key, 1, 2 * MINUTE_IN_SECONDS );
-
-		if ( ! class_exists( 'Habeq_Bookings' ) ) {
-			self::redirect_with_message( 'error', __( 'Booking service is unavailable. Please try again later.', 'habeq' ) );
-		}
-
-		$result = Habeq_Bookings::create_booking( $event_id, $name, $email, $qty );
-		if ( is_wp_error( $result ) ) {
-			self::redirect_with_message( 'error', $result->get_error_message() );
-		}
-
-		self::send_booking_emails( $event_id, $name, $email, $qty, $result );
-
-		self::redirect_with_message( 'success', __( 'Your booking was received. Check your email for confirmation.', 'habeq' ) );
-	}
-
-	/**
-	 * Build booking form markup.
-	 *
-	 * @param int $event_id Event ID.
-	 * @return string
-	 */
-	private static function get_booking_box_markup( $event_id ) {
-		if ( ! class_exists( 'Habeq_DB' ) ) {
-			return '';
-		}
-
-		$inventory = Habeq_DB::get_inventory( $event_id );
-		$capacity  = $inventory ? $inventory['capacity'] : absint( get_post_meta( $event_id, '_habeq_capacity', true ) );
-		$reserved  = $inventory ? $inventory['reserved'] : 0;
-		$remaining = max( 0, $capacity - $reserved );
-
-		$status  = get_query_var( 'habeq_booking' );
-		$message = get_query_var( 'habeq_message' );
-		$message = $message ? rawurldecode( $message ) : '';
-
-		$success = 'success' === $status;
-		$error   = ( 'error' === $status ) ? $message : '';
-
-		ob_start();
-		$template_path = HABEQ_PATH . 'templates/booking-form.php';
-		if ( file_exists( $template_path ) ) {
-			$booking_error   = $error;
-			$booking_success = $success ? $message : '';
-			require $template_path;
-		}
-		return ob_get_clean();
-	}
 
 	/**
 	 * Redirect after form submission with status and message.
