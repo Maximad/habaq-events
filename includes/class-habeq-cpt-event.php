@@ -27,6 +27,7 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			add_filter( 'the_content', array( __CLASS__, 'append_booking_box' ) );
 			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_public_assets' ) );
 			add_filter( 'query_vars', array( __CLASS__, 'register_query_vars' ) );
+			add_shortcode( 'habeq_organizer_dashboard', array( __CLASS__, 'render_organizer_dashboard' ) );
 		}
 
 		/**
@@ -50,15 +51,17 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				'menu_name'          => __( 'Events', 'habeq' ),
 			);
 
-			$args = array(
-				'labels'             => $labels,
-				'public'             => true,
-				'has_archive'        => true,
-				'menu_position'      => 20,
-				'supports'           => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
-				'rewrite'            => array( 'slug' => 'events' ),
-				'show_in_rest'       => true,
-			);
+				$args = array(
+					'labels'             => $labels,
+					'public'             => true,
+					'has_archive'        => true,
+					'menu_position'      => 20,
+					'supports'           => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
+					'rewrite'            => array( 'slug' => 'events' ),
+					'show_in_rest'       => true,
+					'capability_type'    => array( 'habeq_event', 'habeq_events' ),
+					'map_meta_cap'       => true,
+				);
 
 			register_post_type( 'habeq_event', $args );
 		}
@@ -266,6 +269,13 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			$message = '';
 			$error   = '';
 
+			if ( isset( $_POST['habeq_tools_settings_action'] ) && 'save_settings' === $_POST['habeq_tools_settings_action'] ) {
+				check_admin_referer( 'habeq_tools_settings', 'habeq_tools_settings_nonce' );
+				$trusted = ! empty( $_POST['habeq_trusted_autopublish'] ) ? '1' : '0';
+				update_option( 'habeq_trusted_autopublish', $trusted );
+				$message = __( 'Settings updated.', 'habeq' );
+			}
+
 			if ( isset( $_POST['habeq_tools_action'] ) && 'create_booking' === $_POST['habeq_tools_action'] ) {
 				check_admin_referer( 'habeq_tools_booking', 'habeq_tools_nonce' );
 
@@ -298,6 +308,19 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<div class="notice notice-error"><p><?php echo esc_html( $error ); ?></p></div>
 				<?php endif; ?>
 
+				<h2><?php esc_html_e( 'Organizer Settings', 'habeq' ); ?></h2>
+				<form method="post">
+					<?php wp_nonce_field( 'habeq_tools_settings', 'habeq_tools_settings_nonce' ); ?>
+					<input type="hidden" name="habeq_tools_settings_action" value="save_settings" />
+					<label>
+						<input type="checkbox" name="habeq_trusted_autopublish" value="1" <?php checked( self::trusted_autopublish_enabled() ); ?> />
+						<?php esc_html_e( 'Trusted organizers can auto-publish', 'habeq' ); ?>
+					</label>
+					<?php submit_button( __( 'Save Settings', 'habeq' ) ); ?>
+				</form>
+
+				<hr />
+
 				<form method="post">
 					<?php wp_nonce_field( 'habeq_tools_booking', 'habeq_tools_nonce' ); ?>
 					<input type="hidden" name="habeq_tools_action" value="create_booking" />
@@ -322,7 +345,170 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<?php submit_button( __( 'Create Test Booking', 'habeq' ) ); ?>
 				</form>
 			</div>
+				<?php
+			}
+
+		/**
+		 * Shortcode for organizer dashboard.
+		 *
+		 * @return string
+		 */
+		public static function render_organizer_dashboard() {
+			if ( ! is_user_logged_in() ) {
+				return '<p>' . esc_html__( 'Please log in to manage your events.', 'habeq' ) . '</p>';
+			}
+
+			if ( ! current_user_can( 'edit_habeq_events' ) ) {
+				return '<p>' . esc_html__( 'You do not have permission to manage events.', 'habeq' ) . '</p>';
+			}
+
+			$user_id = get_current_user_id();
+			$message = '';
+			$error   = '';
+
+			if ( isset( $_POST['habeq_dashboard_action'] ) && 'create_event' === $_POST['habeq_dashboard_action'] ) {
+				check_admin_referer( 'habeq_dashboard_event', 'habeq_dashboard_nonce' );
+
+				$title   = isset( $_POST['habeq_event_title'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_event_title'] ) ) : '';
+				$content = isset( $_POST['habeq_event_description'] ) ? wp_kses_post( wp_unslash( $_POST['habeq_event_description'] ) ) : '';
+				$excerpt = isset( $_POST['habeq_event_excerpt'] ) ? wp_kses_post( wp_unslash( $_POST['habeq_event_excerpt'] ) ) : '';
+
+				$start_datetime = isset( $_POST['habeq_start_datetime'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_start_datetime'] ) ) : '';
+				$end_datetime   = isset( $_POST['habeq_end_datetime'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_end_datetime'] ) ) : '';
+				$venue_name     = isset( $_POST['habeq_venue_name'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_venue_name'] ) ) : '';
+				$venue_address  = isset( $_POST['habeq_venue_address'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_venue_address'] ) ) : '';
+				$capacity       = isset( $_POST['habeq_capacity'] ) ? absint( wp_unslash( $_POST['habeq_capacity'] ) ) : 0;
+
+				if ( '' === $title ) {
+					$error = __( 'Event title is required.', 'habeq' );
+				} else {
+					$post_status = self::trusted_autopublish_enabled() ? 'publish' : 'pending';
+					$post_id     = wp_insert_post(
+						array(
+							'post_type'    => 'habeq_event',
+							'post_title'   => $title,
+							'post_content' => $content,
+							'post_excerpt' => $excerpt,
+							'post_status'  => $post_status,
+							'post_author'  => $user_id,
+						),
+						true
+					);
+
+					if ( is_wp_error( $post_id ) ) {
+						$error = $post_id->get_error_message();
+					} else {
+						update_post_meta( $post_id, '_habeq_start', $start_datetime );
+						update_post_meta( $post_id, '_habeq_end', $end_datetime );
+						update_post_meta( $post_id, '_habeq_venue_name', $venue_name );
+						update_post_meta( $post_id, '_habeq_venue_address', $venue_address );
+						update_post_meta( $post_id, '_habeq_capacity', $capacity );
+
+						if ( class_exists( 'Habeq_DB' ) ) {
+							Habeq_DB::maybe_ensure_inventory_row( $post_id, $capacity );
+						}
+
+						$message = self::trusted_autopublish_enabled()
+							? __( 'Event published successfully.', 'habeq' )
+							: __( 'Event submitted and pending review.', 'habeq' );
+					}
+				}
+			}
+
+			$events = new WP_Query(
+				array(
+					'post_type'      => 'habeq_event',
+					'author'         => $user_id,
+					'posts_per_page' => 20,
+					'post_status'    => array( 'publish', 'pending', 'draft' ),
+				)
+			);
+
+			ob_start();
+			?>
+			<div class="habeq-organizer-dashboard">
+				<h2><?php esc_html_e( 'Your Events', 'habeq' ); ?></h2>
+				<?php if ( $message ) : ?>
+					<div class="habeq-booking-message habeq-booking-success"><?php echo esc_html( $message ); ?></div>
+				<?php elseif ( $error ) : ?>
+					<div class="habeq-booking-message habeq-booking-error"><?php echo esc_html( $error ); ?></div>
+				<?php endif; ?>
+
+				<?php if ( $events->have_posts() ) : ?>
+					<ul class="habeq-organizer-events">
+						<?php while ( $events->have_posts() ) : $events->the_post(); ?>
+							<li>
+								<a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+								<span class="habeq-status"><?php echo esc_html( ucfirst( get_post_status() ) ); ?></span>
+								<?php if ( get_edit_post_link() ) : ?>
+									<a href="<?php echo esc_url( get_edit_post_link() ); ?>" class="habeq-edit-link">
+										<?php esc_html_e( 'Edit', 'habeq' ); ?>
+									</a>
+								<?php endif; ?>
+							</li>
+						<?php endwhile; ?>
+					</ul>
+					<?php wp_reset_postdata(); ?>
+				<?php else : ?>
+					<p><?php esc_html_e( 'You have not created any events yet.', 'habeq' ); ?></p>
+				<?php endif; ?>
+
+				<h2><?php esc_html_e( 'Create New Event', 'habeq' ); ?></h2>
+				<form method="post" class="habeq-organizer-form">
+					<?php wp_nonce_field( 'habeq_dashboard_event', 'habeq_dashboard_nonce' ); ?>
+					<input type="hidden" name="habeq_dashboard_action" value="create_event" />
+
+					<p class="habeq-field">
+						<label for="habeq_event_title"><?php esc_html_e( 'Event Title', 'habeq' ); ?></label>
+						<input type="text" name="habeq_event_title" id="habeq_event_title" required />
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_event_description"><?php esc_html_e( 'Description', 'habeq' ); ?></label>
+						<textarea name="habeq_event_description" id="habeq_event_description" rows="5"></textarea>
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_event_excerpt"><?php esc_html_e( 'Excerpt', 'habeq' ); ?></label>
+						<textarea name="habeq_event_excerpt" id="habeq_event_excerpt" rows="3"></textarea>
+					</p>
+
+					<p class="habeq-field">
+						<label for="habeq_start_datetime"><?php esc_html_e( 'Start Date/Time', 'habeq' ); ?></label>
+						<input type="datetime-local" name="habeq_start_datetime" id="habeq_start_datetime" />
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_end_datetime"><?php esc_html_e( 'End Date/Time', 'habeq' ); ?></label>
+						<input type="datetime-local" name="habeq_end_datetime" id="habeq_end_datetime" />
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_venue_name"><?php esc_html_e( 'Venue Name', 'habeq' ); ?></label>
+						<input type="text" name="habeq_venue_name" id="habeq_venue_name" />
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_venue_address"><?php esc_html_e( 'Venue Address', 'habeq' ); ?></label>
+						<input type="text" name="habeq_venue_address" id="habeq_venue_address" />
+					</p>
+					<p class="habeq-field">
+						<label for="habeq_capacity"><?php esc_html_e( 'Capacity', 'habeq' ); ?></label>
+						<input type="number" name="habeq_capacity" id="habeq_capacity" min="0" value="0" />
+					</p>
+
+					<button type="submit" class="button button-primary">
+						<?php esc_html_e( 'Submit Event', 'habeq' ); ?>
+					</button>
+				</form>
+			</div>
 			<?php
+
+			return ob_get_clean();
+		}
+
+		/**
+		 * Check if trusted auto-publish is enabled.
+		 *
+		 * @return bool
+		 */
+		private static function trusted_autopublish_enabled() {
+			return '1' === get_option( 'habeq_trusted_autopublish', '0' );
 		}
 
 	/**

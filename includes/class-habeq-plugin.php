@@ -41,6 +41,13 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( class_exists( 'Habeq_DB' ) ) {
 				Habeq_DB::create_or_upgrade_tables();
 			}
+			$caps_path = HABEQ_PATH . 'includes/class-habeq-capabilities.php';
+			if ( file_exists( $caps_path ) ) {
+				require_once $caps_path;
+			}
+			if ( class_exists( 'Habeq_Capabilities' ) ) {
+				Habeq_Capabilities::register_role_and_caps();
+			}
 		}
 
 		/**
@@ -87,6 +94,11 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			$db_path = HABEQ_PATH . 'includes/class-habeq-db.php';
 			if ( file_exists( $db_path ) ) {
 				require_once $db_path;
+			}
+
+			$caps_path = HABEQ_PATH . 'includes/class-habeq-capabilities.php';
+			if ( file_exists( $caps_path ) ) {
+				require_once $caps_path;
 			}
 
 			$bookings_path = HABEQ_PATH . 'includes/class-habeq-bookings.php';
