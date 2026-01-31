@@ -38,6 +38,9 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 */
 		public static function activate() {
 			update_option( 'habeq_version', HABEQ_VERSION );
+			if ( class_exists( 'Habeq_DB' ) ) {
+				Habeq_DB::create_or_upgrade_tables();
+			}
 		}
 
 		/**
@@ -80,6 +83,11 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( file_exists( $cpt_path ) ) {
 				require_once $cpt_path;
 			}
+
+			$db_path = HABEQ_PATH . 'includes/class-habeq-db.php';
+			if ( file_exists( $db_path ) ) {
+				require_once $db_path;
+			}
 		}
 
 		/**
@@ -91,6 +99,7 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			add_action( 'init', array( $this, 'load_textdomain' ) );
 			add_action( 'init', array( $this, 'register_content_types' ) );
 			add_action( 'init', array( $this, 'register_data_stores' ) );
+			add_action( 'init', array( $this, 'maybe_upgrade_db' ) );
 		}
 
 		/**
@@ -124,6 +133,17 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 */
 		public function register_data_stores() {
 			// Future database setup.
+		}
+
+		/**
+		 * Ensure database schema is up to date.
+		 *
+		 * @return void
+		 */
+		public function maybe_upgrade_db() {
+			if ( class_exists( 'Habeq_DB' ) ) {
+				Habeq_DB::create_or_upgrade_tables();
+			}
 		}
 	}
 }

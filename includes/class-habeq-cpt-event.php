@@ -186,6 +186,12 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 
 				update_post_meta( $post_id, $meta_key, $value );
 			}
+
+			$capacity_raw = isset( $_POST['habeq_capacity'] ) ? wp_unslash( $_POST['habeq_capacity'] ) : '';
+			$capacity     = '' === trim( (string) $capacity_raw ) ? 0 : absint( $capacity_raw );
+			if ( class_exists( 'Habeq_DB' ) ) {
+				Habeq_DB::maybe_ensure_inventory_row( $post_id, $capacity );
+			}
 		}
 
 		/**
