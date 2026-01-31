@@ -133,5 +133,41 @@ if ( ! class_exists( 'Habeq_DB' ) ) {
 				array( '%d', '%d', '%d', '%s' )
 			);
 		}
+
+		/**
+		 * Get inventory data for an event.
+		 *
+		 * @param int $event_id Event ID.
+		 * @return array|null
+		 */
+		public static function get_inventory( $event_id ) {
+			global $wpdb;
+
+			$event_id = absint( $event_id );
+			if ( 0 === $event_id ) {
+				return null;
+			}
+
+			$tables = self::get_table_names();
+			$table  = $tables['inventory'];
+
+			$row = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT event_id, capacity, reserved FROM {$table} WHERE event_id = %d",
+					$event_id
+				),
+				ARRAY_A
+			);
+
+			if ( ! $row ) {
+				return null;
+			}
+
+			return array(
+				'event_id' => absint( $row['event_id'] ),
+				'capacity' => absint( $row['capacity'] ),
+				'reserved' => absint( $row['reserved'] ),
+			);
+		}
 	}
 }

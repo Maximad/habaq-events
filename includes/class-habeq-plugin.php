@@ -88,6 +88,11 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( file_exists( $db_path ) ) {
 				require_once $db_path;
 			}
+
+			$bookings_path = HABEQ_PATH . 'includes/class-habeq-bookings.php';
+			if ( file_exists( $bookings_path ) ) {
+				require_once $bookings_path;
+			}
 		}
 
 		/**
