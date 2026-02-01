@@ -18,3 +18,25 @@ Habaq Events is a WordPress plugin that will provide event creation, scheduling,
 ## Releases
 
 Release tags follow the format `vX.Y.Z` (for example, `v0.1.0`).
+
+## Initial Setup
+
+On activation, Habaq Events runs an idempotent setup that creates required pages and menus. You can also run it manually:
+
+1. Go to **Events → Habaq Events Setup** in WP admin.
+2. Click **Run Setup**.
+
+The setup creates/stores these pages and menu IDs:
+
+- Organizer Portal (`organizer`) with `[habeq_portal]`
+- Booking Confirmed (`booking-confirmed`) with `[habeq_booking_confirmation]`
+- Manage Booking (`manage-booking`) with `[habeq_manage_booking]` (draft unless published)
+- Refunds & Cancellations (`refunds`) (draft)
+- Privacy Policy (`privacy`) (draft, or reuses the WP privacy policy page if set)
+- Terms (`terms`) (draft)
+- Contact (`contact`) (draft)
+
+Menus created:
+
+- **Habaq Events – Main**: Events archive, Organizer Portal, optional Manage Booking/Contact.
+- **Habaq Events – Footer**: Privacy, Refunds, Terms, Contact.

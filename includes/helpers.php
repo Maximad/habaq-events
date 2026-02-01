@@ -2,7 +2,7 @@
 /**
  * Helper functions for Habaq Events.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

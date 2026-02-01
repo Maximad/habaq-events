@@ -2,7 +2,7 @@
 /**
  * Capabilities and roles.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Capabilities' ) ) {
+	/**
+	 * Roles and capabilities handler.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Capabilities {
 		/**
 		 * Register roles and capabilities.
