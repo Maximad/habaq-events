@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<phpunit
+	bootstrap="tests/bootstrap.php"
+	colors="true"
+	backupGlobals="false"
+	backupStaticAttributes="false"
+	convertErrorsToExceptions="true"
+	convertNoticesToExceptions="true"
+	convertWarningsToExceptions="true"
+>
+	<testsuites>
+		<testsuite name="Habaq Events">
+			<directory prefix="test-" suffix=".php">tests</directory>
+		</testsuite>
+	</testsuites>
+	<php>
+		<ini name="display_errors" value="1" />
+		<ini name="error_reporting" value="-1" />
+	</php>
+</phpunit>
