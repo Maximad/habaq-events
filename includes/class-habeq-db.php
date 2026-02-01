@@ -104,11 +104,17 @@ if ( ! class_exists( 'Habeq_DB' ) ) {
 			$tables = self::get_table_names();
 			$table  = $tables['inventory'];
 
-			$existing = $wpdb->get_var(
-				$wpdb->prepare( "SELECT event_id FROM {$table} WHERE event_id = %d", $event_id )
+			$existing = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT event_id, reserved FROM {$table} WHERE event_id = %d",
+					$event_id
+				),
+				ARRAY_A
 			);
 
 			if ( $existing ) {
+				$reserved = isset( $existing['reserved'] ) ? absint( $existing['reserved'] ) : 0;
+				$capacity = max( $capacity, $reserved );
 				$wpdb->update(
 					$table,
 					array(

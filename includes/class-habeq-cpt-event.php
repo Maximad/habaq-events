@@ -286,7 +286,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			$message = '';
 			$error   = '';
 
-			if ( isset( $_POST['habeq_tools_settings_action'] ) && 'save_settings' === $_POST['habeq_tools_settings_action'] ) {
+			$settings_action = '';
+			if ( isset( $_POST['habeq_tools_settings_action'] ) ) {
+				$settings_action = sanitize_key( wp_unslash( $_POST['habeq_tools_settings_action'] ) );
+			}
+			if ( 'save_settings' === $settings_action ) {
 				check_admin_referer( 'habeq_tools_settings', 'habeq_tools_settings_nonce' );
 				$trusted = ! empty( $_POST['habeq_trusted_autopublish'] ) ? '1' : '0';
 				update_option( 'habeq_trusted_autopublish', $trusted );
@@ -299,7 +303,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				$message = __( 'Settings updated.', 'habeq' );
 			}
 
-			if ( isset( $_POST['habeq_tools_action'] ) && 'create_booking' === $_POST['habeq_tools_action'] ) {
+			$tools_action = '';
+			if ( isset( $_POST['habeq_tools_action'] ) ) {
+				$tools_action = sanitize_key( wp_unslash( $_POST['habeq_tools_action'] ) );
+			}
+			if ( 'create_booking' === $tools_action ) {
 				check_admin_referer( 'habeq_tools_booking', 'habeq_tools_nonce' );
 
 				$event_id = isset( $_POST['habeq_event_id'] ) ? absint( wp_unslash( $_POST['habeq_event_id'] ) ) : 0;
@@ -404,7 +412,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			$message = '';
 			$error   = '';
 
-			if ( isset( $_POST['habeq_dashboard_action'] ) && 'create_event' === $_POST['habeq_dashboard_action'] ) {
+			$dashboard_action = '';
+			if ( isset( $_POST['habeq_dashboard_action'] ) ) {
+				$dashboard_action = sanitize_key( wp_unslash( $_POST['habeq_dashboard_action'] ) );
+			}
+			if ( 'create_event' === $dashboard_action ) {
 				check_admin_referer( 'habeq_dashboard_event', 'habeq_dashboard_nonce' );
 
 				$title   = isset( $_POST['habeq_event_title'] ) ? sanitize_text_field( wp_unslash( $_POST['habeq_event_title'] ) ) : '';
@@ -476,7 +488,7 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<ul class="habeq-organizer-events">
 						<?php while ( $events->have_posts() ) : $events->the_post(); ?>
 							<li>
-								<a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+								<a href="<?php echo esc_url( get_permalink() ); ?>"><?php echo esc_html( get_the_title() ); ?></a>
 								<span class="habeq-status"><?php echo esc_html( ucfirst( get_post_status() ) ); ?></span>
 								<?php if ( get_edit_post_link() ) : ?>
 									<a href="<?php echo esc_url( get_edit_post_link() ); ?>" class="habeq-edit-link">
@@ -568,7 +580,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				$event_filter = 0;
 			}
 
-			if ( isset( $_GET['habeq_export'] ) && 'csv' === $_GET['habeq_export'] ) {
+			$export_action = '';
+			if ( isset( $_GET['habeq_export'] ) ) {
+				$export_action = sanitize_key( wp_unslash( $_GET['habeq_export'] ) );
+			}
+			if ( 'csv' === $export_action ) {
 				check_admin_referer( 'habeq_export_bookings', 'habeq_export_nonce' );
 				self::export_bookings_csv( $event_filter, $event_ids, $is_admin );
 			}
@@ -845,7 +861,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				return;
 			}
 
-			if ( empty( $_POST['habeq_booking_action'] ) || 'submit_booking' !== $_POST['habeq_booking_action'] ) {
+			$booking_action = '';
+			if ( isset( $_POST['habeq_booking_action'] ) ) {
+				$booking_action = sanitize_key( wp_unslash( $_POST['habeq_booking_action'] ) );
+			}
+			if ( 'submit_booking' !== $booking_action ) {
 				return;
 			}
 
