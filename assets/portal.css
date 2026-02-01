@@ -1,0 +1,24 @@
+.habeq-portal {
+	margin: 2rem 0;
+}
+
+.habeq-portal__nav-list {
+	list-style: none;
+	margin: 0 0 1.5rem;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+
+.habeq-portal__nav-link {
+	text-decoration: none;
+}
+
+.habeq-portal__nav-item.is-active .habeq-portal__nav-link {
+	font-weight: 600;
+}
+
+.habeq-portal__panel {
+	padding: 1rem 0;
+}

@@ -57,3 +57,23 @@ if ( ! function_exists( 'habeq_now_mysql' ) ) {
 		return gmdate( 'Y-m-d H:i:s' );
 	}
 }
+
+if ( ! function_exists( 'habeq_portal_url' ) ) {
+	/**
+	 * Build a portal URL with the requested tab and arguments.
+	 *
+	 * @param string $tab  Portal tab slug.
+	 * @param array  $args Optional query args.
+	 * @return string
+	 */
+	function habeq_portal_url( $tab, $args = array() ) {
+		$tab     = sanitize_key( $tab );
+		$page_id = absint( get_option( 'habeq_portal_page_id' ) );
+		$base    = $page_id ? get_permalink( $page_id ) : home_url( '/' );
+		$params  = is_array( $args ) ? $args : array();
+
+		$params['tab'] = $tab;
+
+		return add_query_arg( $params, $base );
+	}
+}
