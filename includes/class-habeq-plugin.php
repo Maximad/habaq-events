@@ -36,17 +36,27 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 *
 		 * @return void
 		 */
-		public static function activate() {
-			update_option( 'habeq_version', HABEQ_VERSION );
-			if ( class_exists( 'Habeq_DB' ) ) {
-				Habeq_DB::create_or_upgrade_tables();
-			}
+			public static function activate() {
+				update_option( 'habeq_version', HABEQ_VERSION );
+				add_option( 'habeq_allow_signup', '1' );
+				add_option( 'habeq_require_approval', '1' );
+				add_option( 'habeq_autopublish_approved', '0' );
+				if ( class_exists( 'Habeq_DB' ) ) {
+					Habeq_DB::create_or_upgrade_tables();
+				}
 			$caps_path = HABEQ_PATH . 'includes/class-habeq-capabilities.php';
 			if ( file_exists( $caps_path ) ) {
 				require_once $caps_path;
 			}
 			if ( class_exists( 'Habeq_Capabilities' ) ) {
 				Habeq_Capabilities::register_role_and_caps();
+			}
+			$portal_path = HABEQ_PATH . 'includes/class-habeq-portal.php';
+			if ( file_exists( $portal_path ) ) {
+				require_once $portal_path;
+			}
+			if ( class_exists( 'Habeq_Portal' ) ) {
+				Habeq_Portal::maybe_create_portal_page();
 			}
 		}
 
@@ -105,6 +115,11 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( file_exists( $bookings_path ) ) {
 				require_once $bookings_path;
 			}
+
+			$portal_path = HABEQ_PATH . 'includes/class-habeq-portal.php';
+			if ( file_exists( $portal_path ) ) {
+				require_once $portal_path;
+			}
 		}
 
 		/**
@@ -117,6 +132,7 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			add_action( 'init', array( $this, 'register_content_types' ) );
 			add_action( 'init', array( $this, 'register_data_stores' ) );
 			add_action( 'init', array( $this, 'maybe_upgrade_db' ) );
+			add_action( 'init', array( $this, 'register_portal' ) );
 		}
 
 		/**
@@ -160,6 +176,17 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		public function maybe_upgrade_db() {
 			if ( class_exists( 'Habeq_DB' ) ) {
 				Habeq_DB::create_or_upgrade_tables();
+			}
+		}
+
+		/**
+		 * Register portal hooks.
+		 *
+		 * @return void
+		 */
+		public function register_portal() {
+			if ( class_exists( 'Habeq_Portal' ) ) {
+				Habeq_Portal::init();
 			}
 		}
 	}
