@@ -44,8 +44,12 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 */
 		public static function init() {
 			add_shortcode( 'habeq_portal', array( __CLASS__, 'render_shortcode' ) );
-			add_shortcode( 'habeq_booking_confirmation', array( __CLASS__, 'render_booking_confirmation' ) );
-			add_shortcode( 'habeq_manage_booking', array( __CLASS__, 'render_manage_booking' ) );
+			if ( ! shortcode_exists( 'habeq_booking_confirmation' ) ) {
+				add_shortcode( 'habeq_booking_confirmation', array( __CLASS__, 'render_booking_confirmation' ) );
+			}
+			if ( ! shortcode_exists( 'habeq_manage_booking' ) ) {
+				add_shortcode( 'habeq_manage_booking', array( __CLASS__, 'render_manage_booking' ) );
+			}
 			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 			add_action( 'admin_post_nopriv_habeq_signup', array( __CLASS__, 'handle_signup' ) );
 			add_action( 'admin_post_nopriv_habeq_login', array( __CLASS__, 'handle_login' ) );
@@ -110,7 +114,7 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 * @return string
 		 */
 		public static function render_booking_confirmation() {
-			$status  = isset( $_GET['booking'] ) ? sanitize_key( wp_unslash( $_GET['booking'] ) ) : '';
+			$status  = isset( $_GET['habeq_status'] ) ? sanitize_key( wp_unslash( $_GET['habeq_status'] ) ) : '';
 			$message = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : '';
 
 			$success = 'success' === $status;
