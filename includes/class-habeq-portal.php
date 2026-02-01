@@ -2,7 +2,7 @@
 /**
  * Organizer portal experience.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Portal' ) ) {
+	/**
+	 * Organizer portal experience.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Portal {
 		/**
 		 * Option name for storing the portal page ID.
@@ -58,6 +63,9 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			$portal_user_status  = self::get_current_user_status();
 			$restricted_tabs     = self::get_restricted_tabs();
 			$can_manage_tabs     = self::can_manage_portal_tabs();
+			$habeq_status        = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
+			$habeq_error         = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
+			$habeq_event_id      = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
 
 			if ( is_user_logged_in() && ( ! $can_manage_tabs ) && in_array( $tab, $restricted_tabs, true ) ) {
 				$tab = 'pending';
@@ -105,10 +113,23 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 				return;
 			}
 
-			$page = get_page_by_title( 'Organizer Portal' );
-			if ( $page && isset( $page->ID ) ) {
-				update_option( self::PAGE_OPTION, (int) $page->ID );
-				return;
+			$page_query = new WP_Query(
+				array(
+					'post_type'      => 'page',
+					'post_status'    => 'any',
+					'posts_per_page' => 5,
+					's'              => 'Organizer Portal',
+					'fields'         => 'ids',
+				)
+			);
+			if ( ! empty( $page_query->posts ) ) {
+				foreach ( $page_query->posts as $page_id ) {
+					$title = get_the_title( $page_id );
+					if ( 'Organizer Portal' === $title ) {
+						update_option( self::PAGE_OPTION, (int) $page_id );
+						return;
+					}
+				}
 			}
 
 			$created_id = wp_insert_post(
@@ -146,10 +167,11 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 				);
 			}
 
-			$email_raw       = isset( $_POST['email'] ) ? wp_unslash( $_POST['email'] ) : '';
-			$display_raw     = isset( $_POST['display_name'] ) ? wp_unslash( $_POST['display_name'] ) : '';
-			$email           = sanitize_email( $email_raw );
-			$display_name    = sanitize_text_field( $display_raw );
+			$email_raw    = isset( $_POST['email'] ) ? wp_unslash( $_POST['email'] ) : '';
+			$display_raw  = isset( $_POST['display_name'] ) ? wp_unslash( $_POST['display_name'] ) : '';
+			$email        = sanitize_email( $email_raw );
+			$display_name = sanitize_text_field( $display_raw );
+			$ip_address   = function_exists( 'habeq_get_ip' ) ? habeq_get_ip() : '';
 
 			if ( '' === $email || ! is_email( $email ) ) {
 				self::redirect_with_status(
@@ -160,6 +182,18 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 					)
 				);
 			}
+
+			if ( self::is_signup_rate_limited( $email, $ip_address ) ) {
+				self::redirect_with_status(
+					'signup',
+					array(
+						'status' => 'error',
+						'error'  => 'rate_limited',
+					)
+				);
+			}
+
+			self::set_signup_rate_limit( $email, $ip_address );
 
 			$username = self::generate_username_from_email( $email );
 			$result   = register_new_user( $username, $email );
@@ -672,6 +706,7 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT id, name, email, qty, status, created_at FROM {$tables['bookings']} WHERE event_id = %d ORDER BY created_at DESC",
 					absint( $event_id )
 				),
@@ -758,14 +793,20 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 *
 		 * @param string $tab  Portal tab.
 		 * @param array  $args Query args.
-		 * @return void
+		 * @return string
 		 */
 		private static function redirect_with_status( $tab, $args = array() ) {
 			$url = function_exists( 'habeq_portal_url' )
 				? habeq_portal_url( $tab, $args )
 				: add_query_arg( array_merge( array( 'tab' => $tab ), $args ), home_url( '/' ) );
 			wp_safe_redirect( $url );
-			exit;
+
+			$should_exit = (bool) apply_filters( 'habeq_portal_exit_on_redirect', true, $tab, $args );
+			if ( $should_exit ) {
+				exit;
+			}
+
+			return $url;
 		}
 
 		/**
@@ -803,6 +844,59 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			}
 
 			return '';
+		}
+
+		/**
+		 * Check if signup attempts are rate limited.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return bool
+		 */
+		private static function is_signup_rate_limited( $email, $ip ) {
+			$keys = self::get_signup_rate_limit_keys( $email, $ip );
+			foreach ( $keys as $key ) {
+				if ( $key && get_transient( $key ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/**
+		 * Apply signup rate limit.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return void
+		 */
+		private static function set_signup_rate_limit( $email, $ip ) {
+			$keys = self::get_signup_rate_limit_keys( $email, $ip );
+			foreach ( $keys as $key ) {
+				if ( $key ) {
+					set_transient( $key, 1, 10 * MINUTE_IN_SECONDS );
+				}
+			}
+		}
+
+		/**
+		 * Build signup rate limit keys.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return string[]
+		 */
+		private static function get_signup_rate_limit_keys( $email, $ip ) {
+			$keys = array();
+			if ( $email ) {
+				$keys[] = 'habeq_signup_email_' . md5( strtolower( $email ) );
+			}
+			if ( $ip ) {
+				$keys[] = 'habeq_signup_ip_' . md5( $ip );
+			}
+
+			return $keys;
 		}
 	}
 }

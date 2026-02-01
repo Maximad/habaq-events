@@ -10,8 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $is_approved = class_exists( 'Habeq_Portal' ) ? Habeq_Portal::is_current_user_approved_organizer() : false;
-$status      = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
-$error       = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
+$status      = isset( $habeq_status ) ? $habeq_status : '';
+$error       = isset( $habeq_error ) ? $habeq_error : '';
 $messages    = array(
 	'event_created' => __( 'Event created and awaiting review.', 'habeq' ),
 	'event_updated' => __( 'Event updated.', 'habeq' ),
