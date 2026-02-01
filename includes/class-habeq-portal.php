@@ -44,6 +44,8 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 */
 		public static function init() {
 			add_shortcode( 'habeq_portal', array( __CLASS__, 'render_shortcode' ) );
+			add_shortcode( 'habeq_booking_confirmation', array( __CLASS__, 'render_booking_confirmation' ) );
+			add_shortcode( 'habeq_manage_booking', array( __CLASS__, 'render_manage_booking' ) );
 			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 			add_action( 'admin_post_nopriv_habeq_signup', array( __CLASS__, 'handle_signup' ) );
 			add_action( 'admin_post_nopriv_habeq_login', array( __CLASS__, 'handle_login' ) );
@@ -100,6 +102,36 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 					HABEQ_VERSION
 				);
 			}
+		}
+
+		/**
+		 * Render booking confirmation placeholder.
+		 *
+		 * @return string
+		 */
+		public static function render_booking_confirmation() {
+			$status  = isset( $_GET['booking'] ) ? sanitize_key( wp_unslash( $_GET['booking'] ) ) : '';
+			$message = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : '';
+
+			$success = 'success' === $status;
+			$text    = $success
+				? __( 'Your booking has been confirmed.', 'habeq' )
+				: __( 'Your booking is being processed.', 'habeq' );
+
+			if ( $message ) {
+				$text = $message;
+			}
+
+			return '<div class=\"habeq-booking-confirmation\">' . esc_html( $text ) . '</div>';
+		}
+
+		/**
+		 * Render manage booking placeholder.
+		 *
+		 * @return string
+		 */
+		public static function render_manage_booking() {
+			return '<p>' . esc_html__( 'Manage booking coming soon.', 'habeq' ) . '</p>';
 		}
 
 		/**

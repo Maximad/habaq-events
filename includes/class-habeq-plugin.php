@@ -63,6 +63,9 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( class_exists( 'Habeq_Portal' ) ) {
 				Habeq_Portal::maybe_create_portal_page();
 			}
+			if ( class_exists( 'Habeq_Installer' ) ) {
+				Habeq_Installer::run_setup();
+			}
 		}
 
 		/**
@@ -125,6 +128,11 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( file_exists( $portal_path ) ) {
 				require_once $portal_path;
 			}
+
+			$installer_path = HABEQ_PATH . 'includes/class-habeq-installer.php';
+			if ( file_exists( $installer_path ) ) {
+				require_once $installer_path;
+			}
 		}
 
 		/**
@@ -138,6 +146,7 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			add_action( 'init', array( $this, 'register_data_stores' ) );
 			add_action( 'init', array( $this, 'maybe_upgrade_db' ) );
 			add_action( 'init', array( $this, 'register_portal' ) );
+			add_action( 'init', array( $this, 'register_installer' ) );
 		}
 
 		/**
@@ -192,6 +201,17 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		public function register_portal() {
 			if ( class_exists( 'Habeq_Portal' ) ) {
 				Habeq_Portal::init();
+			}
+		}
+
+		/**
+		 * Register installer hooks.
+		 *
+		 * @return void
+		 */
+		public function register_installer() {
+			if ( class_exists( 'Habeq_Installer' ) ) {
+				Habeq_Installer::init();
 			}
 		}
 	}
