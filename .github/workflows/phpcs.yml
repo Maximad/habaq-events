@@ -20,8 +20,11 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
+      - name: Lint PHP files
+        run: php -l habaq-events.php && php -l includes/class-habeq-bookings.php && php -l includes/class-habeq-capabilities.php && php -l includes/class-habeq-cpt-event.php && php -l includes/class-habeq-db.php && php -l includes/class-habeq-plugin.php && php -l includes/class-habeq-portal.php && php -l includes/helpers.php
+
       - name: Run PHPCS
-        run: vendor/bin/phpcs
+        run: vendor/bin/phpcs --extensions=php
 
   phpunit:
     runs-on: ubuntu-latest
@@ -51,8 +54,22 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
+      - name: Install subversion
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            mysqladmin ping -h 127.0.0.1 -proot && break
+            sleep 2
+          done
+
       - name: Install WordPress test suite
-        run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest
+        run: |
+          chmod +x bin/install-wp-tests.sh
+          bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest
 
       - name: Run PHPUnit
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
         run: vendor/bin/phpunit

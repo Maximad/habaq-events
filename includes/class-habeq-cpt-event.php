@@ -2,7 +2,7 @@
 /**
  * Event custom post type.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
+	/**
+	 * Event custom post type handlers.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_CPT_Event {
 		/**
 		 * Initialize hooks.
@@ -52,17 +57,17 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				'menu_name'          => __( 'Events', 'habeq' ),
 			);
 
-				$args = array(
-					'labels'             => $labels,
-					'public'             => true,
-					'has_archive'        => true,
-					'menu_position'      => 20,
-					'supports'           => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
-					'rewrite'            => array( 'slug' => 'events' ),
-					'show_in_rest'       => true,
-					'capability_type'    => array( 'habeq_event', 'habeq_events' ),
-					'map_meta_cap'       => true,
-				);
+			$args = array(
+				'labels'          => $labels,
+				'public'          => true,
+				'has_archive'     => true,
+				'menu_position'   => 20,
+				'supports'        => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
+				'rewrite'         => array( 'slug' => 'events' ),
+				'show_in_rest'    => true,
+				'capability_type' => array( 'habeq_event', 'habeq_events' ),
+				'map_meta_cap'    => true,
+			);
 
 			register_post_type( 'habeq_event', $args );
 		}
@@ -246,32 +251,32 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 		 *
 		 * @return void
 		 */
-			public static function register_tools_page() {
-				add_submenu_page(
-					'edit.php?post_type=habeq_event',
-					__( 'Event Tools', 'habeq' ),
-					__( 'Tools', 'habeq' ),
+		public static function register_tools_page() {
+			add_submenu_page(
+				'edit.php?post_type=habeq_event',
+				__( 'Event Tools', 'habeq' ),
+				__( 'Tools', 'habeq' ),
 				'manage_options',
 				'habeq-event-tools',
 				array( __CLASS__, 'render_tools_page' )
-				);
-			}
+			);
+		}
 
-			/**
-			 * Register bookings admin page.
-			 *
-			 * @return void
-			 */
-			public static function register_bookings_page() {
-				add_submenu_page(
-					'edit.php?post_type=habeq_event',
-					__( 'Bookings', 'habeq' ),
-					__( 'Bookings', 'habeq' ),
-					'edit_habeq_events',
-					'habeq-event-bookings',
-					array( __CLASS__, 'render_bookings_page' )
-				);
-			}
+		/**
+		 * Register bookings admin page.
+		 *
+		 * @return void
+		 */
+		public static function register_bookings_page() {
+			add_submenu_page(
+				'edit.php?post_type=habeq_event',
+				__( 'Bookings', 'habeq' ),
+				__( 'Bookings', 'habeq' ),
+				'edit_habeq_events',
+				'habeq-event-bookings',
+				array( __CLASS__, 'render_bookings_page' )
+			);
+		}
 
 		/**
 		 * Render the admin tools page.
@@ -697,6 +702,7 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				$where = implode( ' AND ', $filters );
 			}
 
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 			$sql = "SELECT name, email, qty, status, created_at FROM {$tables['bookings']} WHERE {$where} ORDER BY created_at DESC";
 			$prepared = $params ? $wpdb->prepare( $sql, $params ) : $sql;
 			$rows = $wpdb->get_results( $prepared, ARRAY_A );
@@ -945,14 +951,14 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			return ob_get_clean();
 		}
 
-	/**
-	 * Redirect after form submission with status and message.
-	 *
-	 * @param string $status  Status key.
-	 * @param string $message Message text.
-	 * @return void
-	 */
-	private static function redirect_with_message( $status, $message ) {
+		/**
+		 * Redirect after form submission with status and message.
+		 *
+		 * @param string $status  Status key.
+		 * @param string $message Message text.
+		 * @return void
+		 */
+		private static function redirect_with_message( $status, $message ) {
 		$url = add_query_arg(
 			array(
 				'habeq_booking' => $status,
@@ -965,17 +971,17 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 		exit;
 	}
 
-	/**
-	 * Send booking confirmation emails.
-	 *
-	 * @param int    $event_id  Event ID.
-	 * @param string $name      Booker name.
-	 * @param string $email     Booker email.
-	 * @param int    $qty       Quantity.
-	 * @param int    $booking_id Booking ID.
-	 * @return void
-	 */
-	private static function send_booking_emails( $event_id, $name, $email, $qty, $booking_id ) {
+		/**
+		 * Send booking confirmation emails.
+		 *
+		 * @param int    $event_id  Event ID.
+		 * @param string $name      Booker name.
+		 * @param string $email     Booker email.
+		 * @param int    $qty       Quantity.
+		 * @param int    $booking_id Booking ID.
+		 * @return void
+		 */
+		private static function send_booking_emails( $event_id, $name, $email, $qty, $booking_id ) {
 		$event_title = get_the_title( $event_id );
 		$event_link  = get_permalink( $event_id );
 		$admin_email = get_option( 'admin_email' );
@@ -1013,4 +1019,5 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 
 		wp_mail( $admin_email, $subject_admin, $message_admin );
 	}
+}
 }

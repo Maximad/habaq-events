@@ -2,7 +2,7 @@
 /**
  * Database schema and helpers.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_DB' ) ) {
+	/**
+	 * Database schema and helpers.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_DB {
 		/**
 		 * Schema version.
@@ -106,6 +111,7 @@ if ( ! class_exists( 'Habeq_DB' ) ) {
 
 			$existing = $wpdb->get_row(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT event_id, reserved FROM {$table} WHERE event_id = %d",
 					$event_id
 				),
@@ -159,6 +165,7 @@ if ( ! class_exists( 'Habeq_DB' ) ) {
 
 			$row = $wpdb->get_row(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT event_id, capacity, reserved FROM {$table} WHERE event_id = %d",
 					$event_id
 				),

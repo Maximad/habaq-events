@@ -2,7 +2,7 @@
 /**
  * Booking service.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Bookings' ) ) {
+	/**
+	 * Booking service logic.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Bookings {
 		/**
 		 * Create a booking and reserve inventory.
@@ -59,6 +64,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$updated = $wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['inventory']} SET reserved = reserved + %d, updated_at = %s WHERE event_id = %d AND reserved + %d <= capacity",
 					$qty,
 					$now,
@@ -95,6 +101,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 			if ( false === $inserted ) {
 				$wpdb->query(
 					$wpdb->prepare(
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 						"UPDATE {$tables['inventory']} SET reserved = GREATEST(reserved - %d, 0), updated_at = %s WHERE event_id = %d",
 						$qty,
 						$now,
@@ -134,6 +141,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$booking = $wpdb->get_row(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT id, event_id, qty, status FROM {$tables['bookings']} WHERE id = %d",
 					$booking_id
 				)
@@ -151,6 +159,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['bookings']} SET status = %s, updated_at = %s WHERE id = %d",
 					'cancelled',
 					$now,
@@ -160,6 +169,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['inventory']} SET reserved = GREATEST(reserved - %d, 0), updated_at = %s WHERE event_id = %d",
 					absint( $booking->qty ),
 					$now,
@@ -196,6 +206,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 			$statuses = self::get_active_statuses();
 			$placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
 
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 			$sql = "SELECT id FROM {$tables['bookings']} WHERE event_id = %d AND email = %s AND status IN ({$placeholders}) LIMIT 1";
 			$params = array_merge( array( $event_id, $email ), $statuses );
 

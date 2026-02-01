@@ -2,7 +2,7 @@
 /**
  * Organizer portal experience.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Portal' ) ) {
+	/**
+	 * Organizer portal experience.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Portal {
 		/**
 		 * Option name for storing the portal page ID.
@@ -58,6 +63,9 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			$portal_user_status  = self::get_current_user_status();
 			$restricted_tabs     = self::get_restricted_tabs();
 			$can_manage_tabs     = self::can_manage_portal_tabs();
+			$habeq_status        = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
+			$habeq_error         = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
+			$habeq_event_id      = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
 
 			if ( is_user_logged_in() && ( ! $can_manage_tabs ) && in_array( $tab, $restricted_tabs, true ) ) {
 				$tab = 'pending';
@@ -105,10 +113,23 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 				return;
 			}
 
-			$page = get_page_by_title( 'Organizer Portal' );
-			if ( $page && isset( $page->ID ) ) {
-				update_option( self::PAGE_OPTION, (int) $page->ID );
-				return;
+			$page_query = new WP_Query(
+				array(
+					'post_type'      => 'page',
+					'post_status'    => 'any',
+					'posts_per_page' => 5,
+					's'              => 'Organizer Portal',
+					'fields'         => 'ids',
+				)
+			);
+			if ( ! empty( $page_query->posts ) ) {
+				foreach ( $page_query->posts as $page_id ) {
+					$title = get_the_title( $page_id );
+					if ( 'Organizer Portal' === $title ) {
+						update_option( self::PAGE_OPTION, (int) $page_id );
+						return;
+					}
+				}
 			}
 
 			$created_id = wp_insert_post(
@@ -685,6 +706,7 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT id, name, email, qty, status, created_at FROM {$tables['bookings']} WHERE event_id = %d ORDER BY created_at DESC",
 					absint( $event_id )
 				),

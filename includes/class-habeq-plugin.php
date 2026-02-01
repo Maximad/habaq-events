@@ -2,7 +2,7 @@
 /**
  * Main plugin bootstrapper.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Plugin' ) ) {
+	/**
+	 * Plugin bootstrap class.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Plugin {
 		/**
 		 * Singleton instance.
