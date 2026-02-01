@@ -45,6 +45,7 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			add_action( 'admin_post_habeq_logout', array( __CLASS__, 'handle_logout' ) );
 			add_action( 'admin_post_habeq_event_create', array( __CLASS__, 'handle_event_create' ) );
 			add_action( 'admin_post_habeq_event_update', array( __CLASS__, 'handle_event_update' ) );
+			add_action( 'admin_post_habeq_bookings_export', array( __CLASS__, 'handle_bookings_export' ) );
 		}
 
 		/**
@@ -56,9 +57,9 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			$tab                 = self::get_active_tab();
 			$portal_user_status  = self::get_current_user_status();
 			$restricted_tabs     = self::get_restricted_tabs();
-			$is_approved         = self::is_current_user_approved_organizer();
+			$can_manage_tabs     = self::can_manage_portal_tabs();
 
-			if ( is_user_logged_in() && ( ! $is_approved ) && in_array( $tab, $restricted_tabs, true ) ) {
+			if ( is_user_logged_in() && ( ! $can_manage_tabs ) && in_array( $tab, $restricted_tabs, true ) ) {
 				$tab = 'pending';
 			}
 
@@ -430,6 +431,55 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		}
 
 		/**
+		 * Handle bookings CSV export.
+		 *
+		 * @return void
+		 */
+		public static function handle_bookings_export() {
+			if ( ! isset( $_GET['habeq_bookings_export_nonce'] ) || ! wp_verify_nonce( wp_unslash( $_GET['habeq_bookings_export_nonce'] ), 'habeq_bookings_export' ) ) {
+				wp_die( esc_html__( 'Invalid export request.', 'habeq' ) );
+			}
+
+			$event_id = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
+			if ( 0 === $event_id ) {
+				wp_die( esc_html__( 'Invalid event.', 'habeq' ) );
+			}
+
+			if ( ! self::can_view_event( $event_id ) ) {
+				wp_die( esc_html__( 'You do not have permission to export this event.', 'habeq' ) );
+			}
+
+			$bookings = self::get_bookings_for_event( $event_id );
+
+			nocache_headers();
+			header( 'Content-Type: text/csv; charset=utf-8' );
+			header( 'Content-Disposition: attachment; filename=habeq-bookings-' . $event_id . '.csv' );
+
+			$output = fopen( 'php://output', 'w' );
+			if ( false === $output ) {
+				wp_die( esc_html__( 'Unable to generate export.', 'habeq' ) );
+			}
+
+			fputcsv( $output, array( 'Booking ID', 'Name', 'Email', 'Qty', 'Status', 'Created' ) );
+			foreach ( $bookings as $booking ) {
+				fputcsv(
+					$output,
+					array(
+						$booking['id'],
+						$booking['name'],
+						$booking['email'],
+						$booking['qty'],
+						$booking['status'],
+						$booking['created_at'],
+					)
+				);
+			}
+
+			fclose( $output );
+			exit;
+		}
+
+		/**
 		 * Determine the active tab.
 		 *
 		 * @return string
@@ -507,6 +557,24 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		}
 
 		/**
+		 * Check if the current user can access management tabs.
+		 *
+		 * @return bool
+		 */
+		public static function can_manage_portal_tabs() {
+			return self::is_admin_user() || self::is_current_user_approved_organizer();
+		}
+
+		/**
+		 * Check if current user is an admin.
+		 *
+		 * @return bool
+		 */
+		private static function is_admin_user() {
+			return current_user_can( 'manage_options' );
+		}
+
+		/**
 		 * Tabs restricted to approved organizers.
 		 *
 		 * @return string[]
@@ -545,6 +613,88 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 */
 		private static function auto_publish_enabled() {
 			return '1' === (string) get_option( 'habeq_autopublish_approved', '0' );
+		}
+
+		/**
+		 * Get events the current user can access in the portal.
+		 *
+		 * @return WP_Post[]
+		 */
+		public static function get_accessible_events() {
+			$args = array(
+				'post_type'      => 'habeq_event',
+				'post_status'    => array( 'publish', 'pending', 'draft', 'future', 'private' ),
+				'posts_per_page' => 50,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+			);
+
+			if ( ! self::is_admin_user() ) {
+				$args['author'] = get_current_user_id();
+			}
+
+			return get_posts( $args );
+		}
+
+		/**
+		 * Determine if the current user can view an event's bookings.
+		 *
+		 * @param int $event_id Event ID.
+		 * @return bool
+		 */
+		private static function can_view_event( $event_id ) {
+			if ( self::is_admin_user() ) {
+				return true;
+			}
+
+			$post = get_post( $event_id );
+			if ( ! $post || 'habeq_event' !== $post->post_type ) {
+				return false;
+			}
+
+			return (int) $post->post_author === get_current_user_id();
+		}
+
+		/**
+		 * Get bookings for a specific event.
+		 *
+		 * @param int $event_id Event ID.
+		 * @return array
+		 */
+		public static function get_bookings_for_event( $event_id ) {
+			if ( ! class_exists( 'Habeq_DB' ) ) {
+				return array();
+			}
+
+			global $wpdb;
+
+			$tables = Habeq_DB::get_table_names();
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, name, email, qty, status, created_at FROM {$tables['bookings']} WHERE event_id = %d ORDER BY created_at DESC",
+					absint( $event_id )
+				),
+				ARRAY_A
+			);
+
+			if ( ! $rows ) {
+				return array();
+			}
+
+			return array_map(
+				static function ( $row ) {
+					return array(
+						'id'         => absint( $row['id'] ),
+						'name'       => (string) $row['name'],
+						'email'      => (string) $row['email'],
+						'qty'        => absint( $row['qty'] ),
+						'status'     => (string) $row['status'],
+						'created_at' => (string) $row['created_at'],
+					);
+				},
+				$rows
+			);
 		}
 
 		/**

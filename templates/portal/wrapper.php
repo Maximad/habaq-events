@@ -22,7 +22,7 @@ $active_tab     = isset( $portal_tab ) ? $portal_tab : 'login';
 $portal_status  = isset( $portal_status ) ? $portal_status : 'guest';
 $allow_signup   = '1' === (string) get_option( 'habeq_allow_signup', '1' );
 $is_logged_in   = is_user_logged_in();
-$is_approved    = class_exists( 'Habeq_Portal' ) ? Habeq_Portal::is_current_user_approved_organizer() : false;
+$is_approved    = class_exists( 'Habeq_Portal' ) ? Habeq_Portal::can_manage_portal_tabs() : false;
 $restricted_tab = in_array( $active_tab, array( 'dashboard', 'events', 'new-event', 'bookings' ), true );
 
 if ( ! $allow_signup ) {
