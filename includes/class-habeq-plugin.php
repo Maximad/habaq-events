@@ -38,6 +38,8 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 */
 		public static function activate() {
 			update_option( 'habeq_version', HABEQ_VERSION );
+			add_option( 'habeq_allow_signup', '1' );
+			add_option( 'habeq_require_approval', '1' );
 			if ( class_exists( 'Habeq_DB' ) ) {
 				Habeq_DB::create_or_upgrade_tables();
 			}

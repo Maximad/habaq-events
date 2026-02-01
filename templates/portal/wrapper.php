@@ -18,11 +18,34 @@ $portal_tabs = array(
 	'bookings'  => __( 'Bookings', 'habeq' ),
 );
 
-$active_tab = isset( $portal_tab ) ? $portal_tab : 'login';
+$active_tab     = isset( $portal_tab ) ? $portal_tab : 'login';
+$portal_status  = isset( $portal_status ) ? $portal_status : 'guest';
+$allow_signup   = '1' === (string) get_option( 'habeq_allow_signup', '1' );
+$is_logged_in   = is_user_logged_in();
+$is_approved    = $is_logged_in && 'approved' === $portal_status;
+$restricted_tab = in_array( $active_tab, array( 'dashboard', 'events', 'new-event', 'bookings' ), true );
+
+if ( ! $allow_signup ) {
+	unset( $portal_tabs['signup'] );
+}
+
+if ( $is_logged_in && ! $is_approved ) {
+	unset( $portal_tabs['events'], $portal_tabs['new-event'], $portal_tabs['bookings'] );
+	if ( $restricted_tab ) {
+		$active_tab = 'pending';
+	}
+}
 ?>
 <div class="habeq-portal">
 	<header class="habeq-portal__header">
 		<h1 class="habeq-portal__title"><?php esc_html_e( 'Organizer Portal', 'habeq' ); ?></h1>
+		<?php if ( $is_logged_in ) : ?>
+			<form class="habeq-portal__logout" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<?php wp_nonce_field( 'habeq_portal_logout', 'habeq_portal_logout_nonce' ); ?>
+				<input type="hidden" name="action" value="habeq_logout" />
+				<button type="submit" class="habeq-portal__logout-button"><?php esc_html_e( 'Log out', 'habeq' ); ?></button>
+			</form>
+		<?php endif; ?>
 	</header>
 	<nav class="habeq-portal__nav" aria-label="<?php esc_attr_e( 'Portal Navigation', 'habeq' ); ?>">
 		<ul class="habeq-portal__nav-list">

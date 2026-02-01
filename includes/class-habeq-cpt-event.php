@@ -290,6 +290,10 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				check_admin_referer( 'habeq_tools_settings', 'habeq_tools_settings_nonce' );
 				$trusted = ! empty( $_POST['habeq_trusted_autopublish'] ) ? '1' : '0';
 				update_option( 'habeq_trusted_autopublish', $trusted );
+				$allow_signup = ! empty( $_POST['habeq_allow_signup'] ) ? '1' : '0';
+				$require_approval = ! empty( $_POST['habeq_require_approval'] ) ? '1' : '0';
+				update_option( 'habeq_allow_signup', $allow_signup );
+				update_option( 'habeq_require_approval', $require_approval );
 				$message = __( 'Settings updated.', 'habeq' );
 			}
 
@@ -332,6 +336,16 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<label>
 						<input type="checkbox" name="habeq_trusted_autopublish" value="1" <?php checked( self::trusted_autopublish_enabled() ); ?> />
 						<?php esc_html_e( 'Trusted organizers can auto-publish', 'habeq' ); ?>
+					</label>
+					<br />
+					<label>
+						<input type="checkbox" name="habeq_allow_signup" value="1" <?php checked( '1' === (string) get_option( 'habeq_allow_signup', '1' ) ); ?> />
+						<?php esc_html_e( 'Allow organizer signup', 'habeq' ); ?>
+					</label>
+					<br />
+					<label>
+						<input type="checkbox" name="habeq_require_approval" value="1" <?php checked( '1' === (string) get_option( 'habeq_require_approval', '1' ) ); ?> />
+						<?php esc_html_e( 'Require admin approval for organizers', 'habeq' ); ?>
 					</label>
 					<?php submit_button( __( 'Save Settings', 'habeq' ) ); ?>
 				</form>
