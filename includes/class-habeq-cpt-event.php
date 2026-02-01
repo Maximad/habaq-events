@@ -292,8 +292,10 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 				update_option( 'habeq_trusted_autopublish', $trusted );
 				$allow_signup = ! empty( $_POST['habeq_allow_signup'] ) ? '1' : '0';
 				$require_approval = ! empty( $_POST['habeq_require_approval'] ) ? '1' : '0';
+				$autopublish_approved = ! empty( $_POST['habeq_autopublish_approved'] ) ? '1' : '0';
 				update_option( 'habeq_allow_signup', $allow_signup );
 				update_option( 'habeq_require_approval', $require_approval );
+				update_option( 'habeq_autopublish_approved', $autopublish_approved );
 				$message = __( 'Settings updated.', 'habeq' );
 			}
 
@@ -346,6 +348,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 					<label>
 						<input type="checkbox" name="habeq_require_approval" value="1" <?php checked( '1' === (string) get_option( 'habeq_require_approval', '1' ) ); ?> />
 						<?php esc_html_e( 'Require admin approval for organizers', 'habeq' ); ?>
+					</label>
+					<br />
+					<label>
+						<input type="checkbox" name="habeq_autopublish_approved" value="1" <?php checked( '1' === (string) get_option( 'habeq_autopublish_approved', '0' ) ); ?> />
+						<?php esc_html_e( 'Auto-publish events for approved organizers', 'habeq' ); ?>
 					</label>
 					<?php submit_button( __( 'Save Settings', 'habeq' ) ); ?>
 				</form>

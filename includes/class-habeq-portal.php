@@ -43,6 +43,8 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			add_action( 'admin_post_nopriv_habeq_signup', array( __CLASS__, 'handle_signup' ) );
 			add_action( 'admin_post_nopriv_habeq_login', array( __CLASS__, 'handle_login' ) );
 			add_action( 'admin_post_habeq_logout', array( __CLASS__, 'handle_logout' ) );
+			add_action( 'admin_post_habeq_event_create', array( __CLASS__, 'handle_event_create' ) );
+			add_action( 'admin_post_habeq_event_update', array( __CLASS__, 'handle_event_update' ) );
 		}
 
 		/**
@@ -54,8 +56,9 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			$tab                 = self::get_active_tab();
 			$portal_user_status  = self::get_current_user_status();
 			$restricted_tabs     = self::get_restricted_tabs();
+			$is_approved         = self::is_current_user_approved_organizer();
 
-			if ( is_user_logged_in() && 'approved' !== $portal_user_status && in_array( $tab, $restricted_tabs, true ) ) {
+			if ( is_user_logged_in() && ( ! $is_approved ) && in_array( $tab, $restricted_tabs, true ) ) {
 				$tab = 'pending';
 			}
 
@@ -281,6 +284,152 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		}
 
 		/**
+		 * Handle organizer event creation.
+		 *
+		 * @return void
+		 */
+		public static function handle_event_create() {
+			check_admin_referer( 'habeq_portal_event_create', 'habeq_portal_event_nonce' );
+
+			if ( ! self::is_current_user_approved_organizer() ) {
+				self::redirect_with_status(
+					'events',
+					array(
+						'status' => 'error',
+						'error'  => 'not_allowed',
+					)
+				);
+			}
+
+			$event_data = self::get_event_payload();
+			if ( is_wp_error( $event_data ) ) {
+				self::redirect_with_status(
+					'new-event',
+					array(
+						'status' => 'error',
+						'error'  => $event_data->get_error_code(),
+					)
+				);
+			}
+
+			$status = self::auto_publish_enabled() ? 'publish' : 'pending';
+
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => 'habeq_event',
+					'post_title'   => $event_data['title'],
+					'post_content' => $event_data['description'],
+					'post_status'  => $status,
+					'post_author'  => get_current_user_id(),
+				),
+				true
+			);
+
+			if ( is_wp_error( $post_id ) ) {
+				self::redirect_with_status(
+					'new-event',
+					array(
+						'status' => 'error',
+						'error'  => 'create_failed',
+					)
+				);
+			}
+
+			self::update_event_meta( $post_id, $event_data );
+
+			self::redirect_with_status(
+				'events',
+				array(
+					'status'   => 'event_created',
+					'event_id' => $post_id,
+				)
+			);
+		}
+
+		/**
+		 * Handle organizer event updates.
+		 *
+		 * @return void
+		 */
+		public static function handle_event_update() {
+			check_admin_referer( 'habeq_portal_event_update', 'habeq_portal_event_nonce' );
+
+			if ( ! self::is_current_user_approved_organizer() ) {
+				self::redirect_with_status(
+					'events',
+					array(
+						'status' => 'error',
+						'error'  => 'not_allowed',
+					)
+				);
+			}
+
+			$event_id = isset( $_POST['event_id'] ) ? absint( wp_unslash( $_POST['event_id'] ) ) : 0;
+			if ( 0 === $event_id ) {
+				self::redirect_with_status(
+					'events',
+					array(
+						'status' => 'error',
+						'error'  => 'invalid_event',
+					)
+				);
+			}
+
+			$post = get_post( $event_id );
+			if ( ! $post || 'habeq_event' !== $post->post_type || (int) $post->post_author !== get_current_user_id() ) {
+				self::redirect_with_status(
+					'events',
+					array(
+						'status' => 'error',
+						'error'  => 'not_allowed',
+					)
+				);
+			}
+
+			$event_data = self::get_event_payload();
+			if ( is_wp_error( $event_data ) ) {
+				self::redirect_with_status(
+					'new-event',
+					array(
+						'status'   => 'error',
+						'error'    => $event_data->get_error_code(),
+						'event_id' => $event_id,
+					)
+				);
+			}
+
+			$updated = wp_update_post(
+				array(
+					'ID'           => $event_id,
+					'post_title'   => $event_data['title'],
+					'post_content' => $event_data['description'],
+				),
+				true
+			);
+
+			if ( is_wp_error( $updated ) ) {
+				self::redirect_with_status(
+					'new-event',
+					array(
+						'status'   => 'error',
+						'error'    => 'update_failed',
+						'event_id' => $event_id,
+					)
+				);
+			}
+
+			self::update_event_meta( $event_id, $event_data );
+
+			self::redirect_with_status(
+				'events',
+				array(
+					'status'   => 'event_updated',
+					'event_id' => $event_id,
+				)
+			);
+		}
+
+		/**
 		 * Determine the active tab.
 		 *
 		 * @return string
@@ -342,6 +491,22 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		}
 
 		/**
+		 * Check if the current user is an approved organizer.
+		 *
+		 * @return bool
+		 */
+		public static function is_current_user_approved_organizer() {
+			if ( ! is_user_logged_in() ) {
+				return false;
+			}
+
+			$user   = wp_get_current_user();
+			$status = get_user_meta( $user->ID, 'habeq_organizer_status', true );
+
+			return in_array( 'habeq_event_organizer', (array) $user->roles, true ) && 'approved' === $status;
+		}
+
+		/**
 		 * Tabs restricted to approved organizers.
 		 *
 		 * @return string[]
@@ -371,6 +536,71 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 */
 		private static function require_approval() {
 			return '1' === (string) get_option( 'habeq_require_approval', '1' );
+		}
+
+		/**
+		 * Check if auto-publish is enabled for approved organizers.
+		 *
+		 * @return bool
+		 */
+		private static function auto_publish_enabled() {
+			return '1' === (string) get_option( 'habeq_autopublish_approved', '0' );
+		}
+
+		/**
+		 * Get sanitized event payload from POST data.
+		 *
+		 * @return array|WP_Error
+		 */
+		private static function get_event_payload() {
+			$title_raw       = isset( $_POST['title'] ) ? wp_unslash( $_POST['title'] ) : '';
+			$description_raw = isset( $_POST['description'] ) ? wp_unslash( $_POST['description'] ) : '';
+			$start_raw       = isset( $_POST['start_datetime'] ) ? wp_unslash( $_POST['start_datetime'] ) : '';
+			$end_raw         = isset( $_POST['end_datetime'] ) ? wp_unslash( $_POST['end_datetime'] ) : '';
+			$venue_name_raw  = isset( $_POST['venue_name'] ) ? wp_unslash( $_POST['venue_name'] ) : '';
+			$venue_addr_raw  = isset( $_POST['venue_address'] ) ? wp_unslash( $_POST['venue_address'] ) : '';
+			$capacity_raw    = isset( $_POST['capacity'] ) ? wp_unslash( $_POST['capacity'] ) : '';
+
+			$title       = sanitize_text_field( $title_raw );
+			$description = wp_kses_post( $description_raw );
+			$start       = sanitize_text_field( $start_raw );
+			$end         = sanitize_text_field( $end_raw );
+			$venue_name  = sanitize_text_field( $venue_name_raw );
+			$venue_addr  = sanitize_text_field( $venue_addr_raw );
+			$capacity    = '' === trim( (string) $capacity_raw ) ? 0 : absint( $capacity_raw );
+
+			if ( '' === $title ) {
+				return new WP_Error( 'missing_title', __( 'Event title is required.', 'habeq' ) );
+			}
+
+			return array(
+				'title'         => $title,
+				'description'   => $description,
+				'start'         => $start,
+				'end'           => $end,
+				'venue_name'    => $venue_name,
+				'venue_address' => $venue_addr,
+				'capacity'      => $capacity,
+			);
+		}
+
+		/**
+		 * Update event meta and inventory for an event.
+		 *
+		 * @param int   $post_id Event ID.
+		 * @param array $data    Event data.
+		 * @return void
+		 */
+		private static function update_event_meta( $post_id, $data ) {
+			update_post_meta( $post_id, '_habeq_start', $data['start'] );
+			update_post_meta( $post_id, '_habeq_end', $data['end'] );
+			update_post_meta( $post_id, '_habeq_venue_name', $data['venue_name'] );
+			update_post_meta( $post_id, '_habeq_venue_address', $data['venue_address'] );
+			update_post_meta( $post_id, '_habeq_capacity', $data['capacity'] );
+
+			if ( class_exists( 'Habeq_DB' ) ) {
+				Habeq_DB::maybe_ensure_inventory_row( $post_id, $data['capacity'] );
+			}
 		}
 
 		/**

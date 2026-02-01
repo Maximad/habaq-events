@@ -36,13 +36,14 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 *
 		 * @return void
 		 */
-		public static function activate() {
-			update_option( 'habeq_version', HABEQ_VERSION );
-			add_option( 'habeq_allow_signup', '1' );
-			add_option( 'habeq_require_approval', '1' );
-			if ( class_exists( 'Habeq_DB' ) ) {
-				Habeq_DB::create_or_upgrade_tables();
-			}
+			public static function activate() {
+				update_option( 'habeq_version', HABEQ_VERSION );
+				add_option( 'habeq_allow_signup', '1' );
+				add_option( 'habeq_require_approval', '1' );
+				add_option( 'habeq_autopublish_approved', '0' );
+				if ( class_exists( 'Habeq_DB' ) ) {
+					Habeq_DB::create_or_upgrade_tables();
+				}
 			$caps_path = HABEQ_PATH . 'includes/class-habeq-capabilities.php';
 			if ( file_exists( $caps_path ) ) {
 				require_once $caps_path;
