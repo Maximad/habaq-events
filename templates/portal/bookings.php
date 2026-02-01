@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php
 	$can_manage   = Habeq_Portal::can_manage_portal_tabs();
 	$events       = Habeq_Portal::get_accessible_events();
-	$selected_id  = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
+	$selected_id  = isset( $habeq_event_id ) ? absint( $habeq_event_id ) : 0;
 	$selected_id  = $selected_id ? $selected_id : ( ! empty( $events ) ? (int) $events[0]->ID : 0 );
 	$has_events   = ! empty( $events );
 	$export_nonce = wp_create_nonce( 'habeq_bookings_export' );
