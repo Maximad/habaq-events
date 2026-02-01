@@ -146,10 +146,11 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 				);
 			}
 
-			$email_raw       = isset( $_POST['email'] ) ? wp_unslash( $_POST['email'] ) : '';
-			$display_raw     = isset( $_POST['display_name'] ) ? wp_unslash( $_POST['display_name'] ) : '';
-			$email           = sanitize_email( $email_raw );
-			$display_name    = sanitize_text_field( $display_raw );
+			$email_raw    = isset( $_POST['email'] ) ? wp_unslash( $_POST['email'] ) : '';
+			$display_raw  = isset( $_POST['display_name'] ) ? wp_unslash( $_POST['display_name'] ) : '';
+			$email        = sanitize_email( $email_raw );
+			$display_name = sanitize_text_field( $display_raw );
+			$ip_address   = function_exists( 'habeq_get_ip' ) ? habeq_get_ip() : '';
 
 			if ( '' === $email || ! is_email( $email ) ) {
 				self::redirect_with_status(
@@ -160,6 +161,18 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 					)
 				);
 			}
+
+			if ( self::is_signup_rate_limited( $email, $ip_address ) ) {
+				self::redirect_with_status(
+					'signup',
+					array(
+						'status' => 'error',
+						'error'  => 'rate_limited',
+					)
+				);
+			}
+
+			self::set_signup_rate_limit( $email, $ip_address );
 
 			$username = self::generate_username_from_email( $email );
 			$result   = register_new_user( $username, $email );
@@ -758,14 +771,20 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 		 *
 		 * @param string $tab  Portal tab.
 		 * @param array  $args Query args.
-		 * @return void
+		 * @return string
 		 */
 		private static function redirect_with_status( $tab, $args = array() ) {
 			$url = function_exists( 'habeq_portal_url' )
 				? habeq_portal_url( $tab, $args )
 				: add_query_arg( array_merge( array( 'tab' => $tab ), $args ), home_url( '/' ) );
 			wp_safe_redirect( $url );
-			exit;
+
+			$should_exit = (bool) apply_filters( 'habeq_portal_exit_on_redirect', true, $tab, $args );
+			if ( $should_exit ) {
+				exit;
+			}
+
+			return $url;
 		}
 
 		/**
@@ -803,6 +822,59 @@ if ( ! class_exists( 'Habeq_Portal' ) ) {
 			}
 
 			return '';
+		}
+
+		/**
+		 * Check if signup attempts are rate limited.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return bool
+		 */
+		private static function is_signup_rate_limited( $email, $ip ) {
+			$keys = self::get_signup_rate_limit_keys( $email, $ip );
+			foreach ( $keys as $key ) {
+				if ( $key && get_transient( $key ) ) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/**
+		 * Apply signup rate limit.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return void
+		 */
+		private static function set_signup_rate_limit( $email, $ip ) {
+			$keys = self::get_signup_rate_limit_keys( $email, $ip );
+			foreach ( $keys as $key ) {
+				if ( $key ) {
+					set_transient( $key, 1, 10 * MINUTE_IN_SECONDS );
+				}
+			}
+		}
+
+		/**
+		 * Build signup rate limit keys.
+		 *
+		 * @param string $email Email.
+		 * @param string $ip    IP address.
+		 * @return string[]
+		 */
+		private static function get_signup_rate_limit_keys( $email, $ip ) {
+			$keys = array();
+			if ( $email ) {
+				$keys[] = 'habeq_signup_email_' . md5( strtolower( $email ) );
+			}
+			if ( $ip ) {
+				$keys[] = 'habeq_signup_ip_' . md5( $ip );
+			}
+
+			return $keys;
 		}
 	}
 }
