@@ -982,35 +982,41 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 		 * @return void
 		 */
 		private static function send_booking_emails( $event_id, $name, $email, $qty, $booking_id ) {
-		$event_title = get_the_title( $event_id );
-		$event_link  = get_permalink( $event_id );
-		$admin_email = get_option( 'admin_email' );
+			$event_title = get_the_title( $event_id );
+			$event_link  = get_permalink( $event_id );
+			$admin_email = get_option( 'admin_email' );
+			$is_staging  = function_exists( 'habeq_is_staging_mode' ) ? habeq_is_staging_mode() : false;
+			$prefix      = $is_staging ? '[STAGING] ' : '';
 
-		$subject_user = sprintf(
-			/* translators: %s: event title */
-			__( 'Your booking for %s', 'habeq' ),
-			$event_title
-		);
-		$message_user = sprintf(
-			/* translators: 1: name, 2: event title, 3: quantity, 4: event link */
-			__( "Hi %1\$s,\n\nThanks for your booking for %2\$s.\nQuantity: %3\$d\nEvent link: %4\$s\n\nWe will contact you with updates.", 'habeq' ),
-			$name,
+			$subject_user = sprintf(
+				/* translators: %s: event title */
+				__( 'Your booking for %s', 'habeq' ),
+				$event_title
+			);
+			$subject_user = $prefix . $subject_user;
+			$message_user = sprintf(
+				/* translators: 1: name, 2: event title, 3: quantity, 4: event link */
+				__( "Hi %1\$s,\n\nThanks for your booking for %2\$s.\nQuantity: %3\$d\nEvent link: %4\$s\n\nWe will contact you with updates.", 'habeq' ),
+				$name,
 			$event_title,
 			$qty,
-			$event_link
-		);
+				$event_link
+			);
 
-		wp_mail( $email, $subject_user, $message_user );
+			if ( ! $is_staging ) {
+				wp_mail( $email, $subject_user, $message_user );
+			}
 
-		$subject_admin = sprintf(
-			/* translators: %s: event title */
-			__( 'New booking for %s', 'habeq' ),
-			$event_title
-		);
-		$message_admin = sprintf(
-			/* translators: 1: event title, 2: name, 3: email, 4: quantity, 5: booking id */
-			__( "New booking received for %1\$s.\nName: %2\$s\nEmail: %3\$s\nQuantity: %4\$d\nBooking ID: %5\$d", 'habeq' ),
-			$event_title,
+			$subject_admin = sprintf(
+				/* translators: %s: event title */
+				__( 'New booking for %s', 'habeq' ),
+				$event_title
+			);
+			$subject_admin = $prefix . $subject_admin;
+			$message_admin = sprintf(
+				/* translators: 1: event title, 2: name, 3: email, 4: quantity, 5: booking id */
+				__( "New booking received for %1\$s.\nName: %2\$s\nEmail: %3\$s\nQuantity: %4\$d\nBooking ID: %5\$d", 'habeq' ),
+				$event_title,
 			$name,
 			$email,
 			$qty,

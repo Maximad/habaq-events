@@ -40,3 +40,13 @@ Menus created:
 
 - **Habaq Events – Main**: Events archive, Organizer Portal, optional Manage Booking/Contact.
 - **Habaq Events – Footer**: Privacy, Refunds, Terms, Contact.
+
+## Staging Mode
+
+To prevent user-facing emails in staging, enable staging mode:
+
+```php
+define( 'HABEQ_STAGING', true );
+```
+
+When enabled, plugin-generated email subjects are prefixed with `[STAGING]` and user-facing booking emails are suppressed (admin notifications still send).

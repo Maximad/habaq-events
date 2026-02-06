@@ -13,5 +13,14 @@
     "allow-plugins": {
       "dealerdirect/phpcodesniffer-composer-installer": true
     }
+  },
+  "scripts": {
+    "lint": "vendor/bin/phpcs --extensions=php",
+    "fix": "vendor/bin/phpcbf --extensions=php",
+    "test": "vendor/bin/phpunit",
+    "ci": [
+      "@lint",
+      "@test"
+    ]
   }
 }
