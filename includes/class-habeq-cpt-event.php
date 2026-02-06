@@ -22,7 +22,7 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 		 * @return void
 		 */
 		public static function init() {
-			add_action( 'init', array( __CLASS__, 'register_post_type' ) );
+			self::register_post_type();
 			add_action( 'add_meta_boxes', array( __CLASS__, 'register_meta_boxes' ) );
 			add_action( 'save_post_habeq_event', array( __CLASS__, 'save_meta' ) );
 			add_filter( 'manage_habeq_event_posts_columns', array( __CLASS__, 'add_columns' ) );
@@ -60,8 +60,11 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			$args = array(
 				'labels'          => $labels,
 				'public'          => true,
+				'show_ui'         => true,
+				'show_in_menu'    => true,
 				'has_archive'     => true,
 				'menu_position'   => 20,
+				'menu_icon'       => 'dashicons-calendar',
 				'supports'        => array( 'title', 'editor', 'thumbnail', 'excerpt' ),
 				'rewrite'         => array( 'slug' => 'events' ),
 				'show_in_rest'    => true,
@@ -70,6 +73,10 @@ if ( ! class_exists( 'Habeq_CPT_Event' ) ) {
 			);
 
 			register_post_type( 'habeq_event', $args );
+
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! post_type_exists( 'habeq_event' ) ) {
+				error_log( 'Habaq Events: Failed to register habeq_event post type.' );
+			}
 		}
 
 		/**
