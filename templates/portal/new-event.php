@@ -10,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $is_approved = class_exists( 'Habeq_Portal' ) ? Habeq_Portal::is_current_user_approved_organizer() : false;
-$status      = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
-$error       = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
-$event_id    = isset( $_GET['event_id'] ) ? absint( wp_unslash( $_GET['event_id'] ) ) : 0;
+$status      = isset( $habeq_status ) ? $habeq_status : '';
+$error       = isset( $habeq_error ) ? $habeq_error : '';
+$event_id    = isset( $habeq_event_id ) ? absint( $habeq_event_id ) : 0;
 
 $error_messages = array(
 	'not_allowed'   => __( 'You do not have access to manage events.', 'habeq' ),

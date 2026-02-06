@@ -4,6 +4,8 @@
   "type": "project",
   "require-dev": {
     "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "phpunit/phpunit": "^9.6",
+    "yoast/phpunit-polyfills": "^2.0",
     "wp-coding-standards/wpcs": "^3.0",
     "phpcompatibility/php-compatibility": "^9.3"
   },
@@ -11,5 +13,14 @@
     "allow-plugins": {
       "dealerdirect/phpcodesniffer-composer-installer": true
     }
+  },
+  "scripts": {
+    "lint": "vendor/bin/phpcs --extensions=php",
+    "fix": "vendor/bin/phpcbf --extensions=php",
+    "test": "vendor/bin/phpunit",
+    "ci": [
+      "@lint",
+      "@test"
+    ]
   }
 }

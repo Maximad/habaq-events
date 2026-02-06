@@ -16,6 +16,10 @@ if ( ! defined( 'HABEQ_VERSION' ) ) {
 	define( 'HABEQ_VERSION', '0.1.0' );
 }
 
+if ( ! defined( 'HABEQ_STAGING' ) ) {
+	define( 'HABEQ_STAGING', false );
+}
+
 if ( ! defined( 'HABEQ_PATH' ) ) {
 	define( 'HABEQ_PATH', plugin_dir_path( __FILE__ ) );
 }

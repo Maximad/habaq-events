@@ -2,7 +2,7 @@
 /**
  * Helper functions for Habaq Events.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -75,5 +75,20 @@ if ( ! function_exists( 'habeq_portal_url' ) ) {
 		$params['tab'] = $tab;
 
 		return add_query_arg( $params, $base );
+	}
+}
+
+if ( ! function_exists( 'habeq_is_staging_mode' ) ) {
+	/**
+	 * Determine whether staging mode is enabled.
+	 *
+	 * @return bool
+	 */
+	function habeq_is_staging_mode() {
+		if ( defined( 'HABEQ_STAGING' ) && true === HABEQ_STAGING ) {
+			return true;
+		}
+
+		return '1' === (string) get_option( 'habeq_staging_mode', '0' );
 	}
 }
