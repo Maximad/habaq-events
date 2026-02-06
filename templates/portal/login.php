@@ -9,8 +9,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	return;
 }
 
-$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
-$error  = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
+$status = isset( $habeq_status ) ? $habeq_status : '';
+$error  = isset( $habeq_error ) ? $habeq_error : '';
 
 $messages = array(
 	'signup_success'     => __( 'Signup complete. Please check your email for your password and log in.', 'habeq' ),

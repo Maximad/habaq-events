@@ -9,14 +9,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	return;
 }
 
-$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
-$error  = isset( $_GET['error'] ) ? sanitize_key( wp_unslash( $_GET['error'] ) ) : '';
+$status = isset( $habeq_status ) ? $habeq_status : '';
+$error  = isset( $habeq_error ) ? $habeq_error : '';
 $allow_signup = '1' === (string) get_option( 'habeq_allow_signup', '1' );
 
 $messages = array(
 	'signup_disabled' => __( 'Organizer signup is currently closed.', 'habeq' ),
 	'invalid_email'   => __( 'Please provide a valid email address.', 'habeq' ),
 	'signup_failed'   => __( 'Signup failed. Please try again.', 'habeq' ),
+	'rate_limited'    => __( 'Please wait before attempting to sign up again.', 'habeq' ),
 );
 
 $error_message = isset( $messages[ $error ] ) ? $messages[ $error ] : __( 'Signup failed. Please try again.', 'habeq' );

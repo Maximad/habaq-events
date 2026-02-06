@@ -2,7 +2,7 @@
 /**
  * Main plugin bootstrapper.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Plugin' ) ) {
+	/**
+	 * Plugin bootstrap class.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Plugin {
 		/**
 		 * Singleton instance.
@@ -36,14 +41,18 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		 *
 		 * @return void
 		 */
-			public static function activate() {
-				update_option( 'habeq_version', HABEQ_VERSION );
-				add_option( 'habeq_allow_signup', '1' );
-				add_option( 'habeq_require_approval', '1' );
-				add_option( 'habeq_autopublish_approved', '0' );
-				if ( class_exists( 'Habeq_DB' ) ) {
-					Habeq_DB::create_or_upgrade_tables();
-				}
+		public static function activate() {
+			update_option( 'habeq_version', HABEQ_VERSION );
+			add_option( 'habeq_allow_signup', '1' );
+			add_option( 'habeq_require_approval', '1' );
+			add_option( 'habeq_autopublish_approved', '0' );
+			$cpt_path = HABEQ_PATH . 'includes/class-habeq-cpt-event.php';
+			if ( file_exists( $cpt_path ) ) {
+				require_once $cpt_path;
+			}
+			if ( class_exists( 'Habeq_DB' ) ) {
+				Habeq_DB::create_or_upgrade_tables();
+			}
 			$caps_path = HABEQ_PATH . 'includes/class-habeq-capabilities.php';
 			if ( file_exists( $caps_path ) ) {
 				require_once $caps_path;
@@ -58,6 +67,14 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( class_exists( 'Habeq_Portal' ) ) {
 				Habeq_Portal::maybe_create_portal_page();
 			}
+			if ( class_exists( 'Habeq_Installer' ) ) {
+				Habeq_Installer::run_setup();
+			}
+			if ( class_exists( 'Habeq_CPT_Event' ) ) {
+				Habeq_CPT_Event::register_post_type();
+			}
+
+			flush_rewrite_rules();
 		}
 
 		/**
@@ -120,6 +137,16 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			if ( file_exists( $portal_path ) ) {
 				require_once $portal_path;
 			}
+
+			$installer_path = HABEQ_PATH . 'includes/class-habeq-installer.php';
+			if ( file_exists( $installer_path ) ) {
+				require_once $installer_path;
+			}
+
+			$status_path = HABEQ_PATH . 'includes/class-habeq-status.php';
+			if ( file_exists( $status_path ) ) {
+				require_once $status_path;
+			}
 		}
 
 		/**
@@ -133,6 +160,8 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 			add_action( 'init', array( $this, 'register_data_stores' ) );
 			add_action( 'init', array( $this, 'maybe_upgrade_db' ) );
 			add_action( 'init', array( $this, 'register_portal' ) );
+			add_action( 'init', array( $this, 'register_installer' ) );
+			add_action( 'init', array( $this, 'register_status' ) );
 		}
 
 		/**
@@ -187,6 +216,28 @@ if ( ! class_exists( 'Habeq_Plugin' ) ) {
 		public function register_portal() {
 			if ( class_exists( 'Habeq_Portal' ) ) {
 				Habeq_Portal::init();
+			}
+		}
+
+		/**
+		 * Register installer hooks.
+		 *
+		 * @return void
+		 */
+		public function register_installer() {
+			if ( class_exists( 'Habeq_Installer' ) ) {
+				Habeq_Installer::init();
+			}
+		}
+
+		/**
+		 * Register status page hooks.
+		 *
+		 * @return void
+		 */
+		public function register_status() {
+			if ( class_exists( 'Habeq_Status' ) ) {
+				Habeq_Status::init();
 			}
 		}
 	}

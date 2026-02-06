@@ -2,7 +2,7 @@
 /**
  * Booking service.
  *
- * @package HabaqEvents
+ * @package Habaq_Events
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! class_exists( 'Habeq_Bookings' ) ) {
+	/**
+	 * Booking service logic.
+	 *
+	 * @package Habaq_Events
+	 */
 	class Habeq_Bookings {
 		/**
 		 * Create a booking and reserve inventory.
@@ -38,6 +43,16 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 				return new WP_Error( 'invalid_customer', __( 'Name and email are required.', 'habeq' ) );
 			}
 
+			if ( self::has_active_booking( $event_id, $email ) ) {
+				return new WP_Error( 'already_booked', __( 'You already have an active booking for this event.', 'habeq' ) );
+			}
+
+			if ( self::is_rate_limited( $event_id, $email ) ) {
+				return new WP_Error( 'rate_limited', __( 'Please wait before booking again.', 'habeq' ) );
+			}
+
+			self::set_rate_limit( $event_id, $email );
+
 			if ( class_exists( 'Habeq_DB' ) ) {
 				Habeq_DB::maybe_ensure_inventory_row( $event_id, 0 );
 			} else {
@@ -49,6 +64,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$updated = $wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['inventory']} SET reserved = reserved + %d, updated_at = %s WHERE event_id = %d AND reserved + %d <= capacity",
 					$qty,
 					$now,
@@ -61,35 +77,43 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 				return new WP_Error( 'sold_out', __( 'Not enough capacity available.', 'habeq' ) );
 			}
 
-			$inserted = $wpdb->insert(
-				$tables['bookings'],
-				array(
-					'event_id'         => $event_id,
-					'user_id'          => $user_id,
-					'name'             => $name,
-					'email'            => $email,
-					'qty'              => $qty,
-					'status'           => 'reserved',
-					'payment_status'   => 'none',
-					'payment_provider' => null,
-					'payment_ref'      => null,
-					'created_at'       => $now,
-					'updated_at'       => $now,
-				),
-				array( '%d', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
-			);
+			$force_failure = (bool) apply_filters( 'habeq_booking_force_insert_failure', false, $event_id, $email );
+			$inserted      = $force_failure
+				? false
+				: $wpdb->insert(
+					$tables['bookings'],
+					array(
+						'event_id'         => $event_id,
+						'user_id'          => $user_id,
+						'name'             => $name,
+						'email'            => $email,
+						'qty'              => $qty,
+						'status'           => 'reserved',
+						'payment_status'   => 'none',
+						'payment_provider' => null,
+						'payment_ref'      => null,
+						'created_at'       => $now,
+						'updated_at'       => $now,
+					),
+					array( '%d', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
+				);
 
 			if ( false === $inserted ) {
 				$wpdb->query(
 					$wpdb->prepare(
-						"UPDATE {$tables['inventory']} SET reserved = reserved - %d, updated_at = %s WHERE event_id = %d",
+						// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
+						"UPDATE {$tables['inventory']} SET reserved = GREATEST(reserved - %d, 0), updated_at = %s WHERE event_id = %d",
 						$qty,
 						$now,
 						$event_id
 					)
 				);
 
-				return new WP_Error( 'booking_failed', __( 'Unable to create booking.', 'habeq' ) );
+				if ( self::has_active_booking( $event_id, $email ) ) {
+					return new WP_Error( 'already_booked', __( 'You already have an active booking for this event.', 'habeq' ) );
+				}
+
+				return new WP_Error( 'db_insert_failed', __( 'Unable to create booking.', 'habeq' ) );
 			}
 
 			return (int) $wpdb->insert_id;
@@ -117,6 +141,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$booking = $wpdb->get_row(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"SELECT id, event_id, qty, status FROM {$tables['bookings']} WHERE id = %d",
 					$booking_id
 				)
@@ -126,7 +151,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 				return new WP_Error( 'not_found', __( 'Booking not found.', 'habeq' ) );
 			}
 
-			if ( 'cancelled' === $booking->status ) {
+			if ( in_array( $booking->status, array( 'cancelled', 'void' ), true ) ) {
 				return true;
 			}
 
@@ -134,6 +159,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['bookings']} SET status = %s, updated_at = %s WHERE id = %d",
 					'cancelled',
 					$now,
@@ -143,6 +169,7 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 
 			$wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
 					"UPDATE {$tables['inventory']} SET reserved = GREATEST(reserved - %d, 0), updated_at = %s WHERE event_id = %d",
 					absint( $booking->qty ),
 					$now,
@@ -151,6 +178,76 @@ if ( ! class_exists( 'Habeq_Bookings' ) ) {
 			);
 
 			return true;
+		}
+
+		/**
+		 * Get statuses that count toward capacity.
+		 *
+		 * @return string[]
+		 */
+		private static function get_active_statuses() {
+			return array( 'reserved', 'confirmed' );
+		}
+
+		/**
+		 * Check if an active booking already exists for the event/email.
+		 *
+		 * @param int    $event_id Event ID.
+		 * @param string $email    Email address.
+		 * @return bool
+		 */
+		private static function has_active_booking( $event_id, $email ) {
+			if ( ! class_exists( 'Habeq_DB' ) ) {
+				return false;
+			}
+
+			global $wpdb;
+			$tables   = Habeq_DB::get_table_names();
+			$statuses = self::get_active_statuses();
+			$placeholders = implode( ',', array_fill( 0, count( $statuses ), '%s' ) );
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal.
+			$sql = "SELECT id FROM {$tables['bookings']} WHERE event_id = %d AND email = %s AND status IN ({$placeholders}) LIMIT 1";
+			$params = array_merge( array( $event_id, $email ), $statuses );
+
+			$found = $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
+
+			return ! empty( $found );
+		}
+
+		/**
+		 * Check if booking is rate limited for this event/email.
+		 *
+		 * @param int    $event_id Event ID.
+		 * @param string $email    Email.
+		 * @return bool
+		 */
+		private static function is_rate_limited( $event_id, $email ) {
+			$key = self::get_rate_limit_key( $event_id, $email );
+			return (bool) get_transient( $key );
+		}
+
+		/**
+		 * Apply booking rate limit for event/email.
+		 *
+		 * @param int    $event_id Event ID.
+		 * @param string $email    Email.
+		 * @return void
+		 */
+		private static function set_rate_limit( $event_id, $email ) {
+			$key = self::get_rate_limit_key( $event_id, $email );
+			set_transient( $key, 1, 2 * MINUTE_IN_SECONDS );
+		}
+
+		/**
+		 * Build booking rate limit key.
+		 *
+		 * @param int    $event_id Event ID.
+		 * @param string $email    Email.
+		 * @return string
+		 */
+		private static function get_rate_limit_key( $event_id, $email ) {
+			return 'habeq_booking_' . $event_id . '_' . md5( strtolower( $email ) );
 		}
 	}
 }
